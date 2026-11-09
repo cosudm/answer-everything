@@ -1,0 +1,27 @@
+{
+  "name": "@ae/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/main.js --packages=external --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ae/authorization": "workspace:*",
+    "@ae/database": "workspace:*",
+    "@ae/domain": "workspace:*",
+    "@ae/evaluation": "workspace:*",
+    "@ae/events": "workspace:*",
+    "@ae/knowledge": "workspace:*",
+    "@ae/model-gateway": "workspace:*",
+    "@ae/model-registry": "workspace:*",
+    "@ae/observability": "workspace:*",
+    "@ae/orchestration": "workspace:*",
+    "@ae/provenance": "workspace:*",
+    "pg": "8.23.1"
+  },
+  "devDependencies": { "@types/pg": "8.23.1", "esbuild": "0.28.2" }
+}

@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+out/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+.turbo/
+.pgdata/
+.terraform/
+*.tfstate
+*.tfstate.backup
+.DS_Store
+/tmp/
+uploads/
