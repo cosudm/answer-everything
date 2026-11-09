@@ -99,7 +99,7 @@ describe("OpenAiCompatibleAdapter against the dev provider", () => {
   });
 
   it("quotes sources placed in the system prompt with their labels", async () => {
-    const system = "Sources:\n[S1] Policy memo\nThe policy took effect in March 2024 and applies to contractors.\n[S2] FAQ\nPenalties are assessed quarterly by the finance team.";
+    const system = "Sources available for this question (cite by label):\n\n[S1] Policy memo\nThe policy took effect in March 2024 and applies to contractors.\n[S2] FAQ\nPenalties are assessed quarterly by the finance team.";
     const events = await collect(adapter.stream(request("When did the policy start?", system), ctx()));
     const text = events.filter((e) => e.type === "delta").map((e) => (e as { text: string }).text).join("");
     expect(text).toContain("[S1]");
