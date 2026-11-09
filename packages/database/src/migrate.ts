@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import type pg from "pg";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-export const MIGRATIONS_DIR = path.resolve(here, "../migrations");
+/** Source layout: packages/database/src -> ../migrations. Bundled layouts set AE_MIGRATIONS_DIR. */
+export const MIGRATIONS_DIR = process.env.AE_MIGRATIONS_DIR ?? path.resolve(here, "../migrations");
 
 export interface MigrationRecord {
   name: string;

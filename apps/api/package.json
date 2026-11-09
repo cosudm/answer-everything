@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
-    "build": "esbuild src/server.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/server.js --packages=external --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "build": "node ../../scripts/build-node.mjs src/server.ts dist/server.js ../../packages/database/src/cli.ts dist/migrate.js ../../packages/model-registry/src/cli.ts dist/seed.js",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
@@ -28,9 +28,13 @@
     "@fastify/helmet": "13.2.0",
     "@fastify/multipart": "10.1.8",
     "@fastify/rate-limit": "11.2.2",
+    "@opentelemetry/api": "1.10.0",
+    "dotenv": "16.6.1",
     "fastify": "5.12.8",
     "fastify-plugin": "5.1.0",
     "pg": "8.23.1",
+    "pino": "10.4.0",
+    "pino-pretty": "13.2.0",
     "zod": "3.25.76"
   },
   "devDependencies": {

@@ -1,0 +1,78 @@
+# Local development stack. `docker compose up` starts PostgreSQL with pgvector,
+# the labelled development provider, the API, the worker and the web app.
+# Copy .env.example to .env first; provider keys are optional.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: answer_everything
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    command: ["sh", "-c", "node dist/migrate.js migrate && node dist/seed.js"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/answer_everything
+      DATABASE_APP_URL: postgres://ae_app:${AE_DB_APP_PASSWORD:-ae_app_dev_password}@postgres:5432/answer_everything
+      DATABASE_IDENTITY_URL: postgres://ae_identity:${AE_DB_IDENTITY_PASSWORD:-ae_identity_dev_password}@postgres:5432/answer_everything
+      DEV_PROVIDER_BASE_URL: http://dev-provider:4100/v1
+      AE_MODEL_SEED_PATH: /app/config/models.seed.json
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  dev-provider:
+    image: node:22-bookworm-slim
+    working_dir: /repo
+    command:
+      [
+        "sh",
+        "-c",
+        "corepack enable && pnpm install --frozen-lockfile --filter @ae/dev-provider... && pnpm --filter @ae/dev-provider dev",
+      ]
+    volumes: [".:/repo"]
+    environment:
+      DEV_PROVIDER_PORT: "4100"
+    ports: ["4100:4100"]
+
+  api:
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    env_file: .env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/answer_everything
+      DATABASE_APP_URL: postgres://ae_app:${AE_DB_APP_PASSWORD:-ae_app_dev_password}@postgres:5432/answer_everything
+      DATABASE_IDENTITY_URL: postgres://ae_identity:${AE_DB_IDENTITY_PASSWORD:-ae_identity_dev_password}@postgres:5432/answer_everything
+      DEV_PROVIDER_BASE_URL: http://dev-provider:4100/v1
+      API_HOST: 0.0.0.0
+    ports: ["4000:4000"]
+
+  worker:
+    build: { context: ., dockerfile: infra/docker/worker.Dockerfile }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/answer_everything
+      DATABASE_APP_URL: postgres://ae_app:${AE_DB_APP_PASSWORD:-ae_app_dev_password}@postgres:5432/answer_everything
+      DATABASE_IDENTITY_URL: postgres://ae_identity:${AE_DB_IDENTITY_PASSWORD:-ae_identity_dev_password}@postgres:5432/answer_everything
+      DEV_PROVIDER_BASE_URL: http://dev-provider:4100/v1
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+      args: { NEXT_PUBLIC_API_URL: http://localhost:4000 }
+    ports: ["3000:3000"]
+    depends_on: [api]
+
+volumes:
+  pgdata: {}

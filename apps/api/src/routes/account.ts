@@ -129,11 +129,9 @@ export async function accountRoutes(app: FastifyInstance, ctx: AppContext) {
     );
     await ctx.identity.revokeAllSessions(p.user.id);
     clearSessionCookies(reply);
-    return reply
-      .status(202)
-      .send({
-        status: "PENDING_DELETION",
-        note: "Your sessions were revoked. Data purge runs as a background job; see DATA_GOVERNANCE.md for the retention window.",
-      });
+    return reply.status(202).send({
+      status: "PENDING_DELETION",
+      note: "Your sessions were revoked. Data purge runs as a background job; see DATA_GOVERNANCE.md for the retention window.",
+    });
   });
 }

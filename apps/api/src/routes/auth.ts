@@ -42,14 +42,12 @@ export async function authRoutes(app: FastifyInstance, ctx: AppContext) {
       result.workspace.settings.allowExperimentalModels = true;
     }
     setSessionCookies(reply, result.tokens, cookieOpts);
-    return reply
-      .status(201)
-      .send({
-        user: result.principal.user,
-        workspace: result.workspace,
-        accessToken: result.tokens.accessToken,
-        expiresAt: result.tokens.session.expiresAt,
-      });
+    return reply.status(201).send({
+      user: result.principal.user,
+      workspace: result.workspace,
+      accessToken: result.tokens.accessToken,
+      expiresAt: result.tokens.session.expiresAt,
+    });
   });
 
   app.post("/v1/auth/login", strict, async (req, reply) => {

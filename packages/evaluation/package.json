@@ -10,12 +10,14 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "run-suite": "tsx src/cli.ts"
   },
   "dependencies": {
     "@ae/database": "workspace:*",
     "@ae/domain": "workspace:*",
     "@ae/model-gateway": "workspace:*",
+    "@ae/model-registry": "workspace:*",
     "@ae/observability": "workspace:*",
     "pg": "8.23.1",
     "zod": "3.25.76"

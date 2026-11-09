@@ -1,0 +1,9 @@
+location            = "eastus2"
+postgres_sku        = "B_Standard_B1ms"
+postgres_storage_mb = 32768
+api_image           = "ghcr.io/REPLACE_ORG/answer-everything-api:dev"
+worker_image        = "ghcr.io/REPLACE_ORG/answer-everything-worker:dev"
+web_image           = "ghcr.io/REPLACE_ORG/answer-everything-web:dev"
+web_public_url      = "https://dev.answer-everything.example"
+api_public_url      = "https://api-dev.answer-everything.example"
+embedding_model     = "openai/text-embedding-3-small"

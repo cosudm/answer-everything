@@ -1,0 +1,9 @@
+variable "location" { type = string }
+variable "postgres_sku" { type = string }
+variable "postgres_storage_mb" { type = number }
+variable "api_image" { type = string }
+variable "worker_image" { type = string }
+variable "web_image" { type = string }
+variable "web_public_url" { type = string }
+variable "api_public_url" { type = string }
+variable "embedding_model" { type = string }

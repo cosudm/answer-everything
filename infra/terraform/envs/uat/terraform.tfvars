@@ -1,0 +1,9 @@
+location            = "eastus2"
+postgres_sku        = "GP_Standard_D2ds_v5"
+postgres_storage_mb = 65536
+api_image           = "ghcr.io/REPLACE_ORG/answer-everything-api:uat"
+worker_image        = "ghcr.io/REPLACE_ORG/answer-everything-worker:uat"
+web_image           = "ghcr.io/REPLACE_ORG/answer-everything-web:uat"
+web_public_url      = "https://uat.answer-everything.example"
+api_public_url      = "https://api-uat.answer-everything.example"
+embedding_model     = "openai/text-embedding-3-small"

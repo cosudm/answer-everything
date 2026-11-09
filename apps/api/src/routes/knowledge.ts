@@ -176,16 +176,14 @@ export async function knowledgeRoutes(app: FastifyInstance, ctx: AppContext) {
       sourceUri: `upload:${file.filename}`,
     });
     if (ctx.config.AE_INLINE_JOBS) await ctx.jobRunner.runOnce();
-    return reply
-      .status(201)
-      .send({
-        knowledge: obj,
-        job,
-        supported,
-        note: supported
-          ? null
-          : `Files of type ${mime} are stored but not yet extracted; text extraction for this format is on the roadmap.`,
-      });
+    return reply.status(201).send({
+      knowledge: obj,
+      job,
+      supported,
+      note: supported
+        ? null
+        : `Files of type ${mime} are stored but not yet extracted; text extraction for this format is on the roadmap.`,
+    });
   });
 
   app.get("/v1/workspaces/:workspaceId/knowledge/:knowledgeId", async (req) => {

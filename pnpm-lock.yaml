@@ -20,6 +20,9 @@ importers:
       dotenv:
         specifier: 16.6.1
         version: 16.6.1
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       eslint:
         specifier: 9.39.5
         version: 9.39.5(jiti@2.7.0)
@@ -98,6 +101,12 @@ importers:
       '@fastify/rate-limit':
         specifier: 11.2.2
         version: 11.2.2
+      '@opentelemetry/api':
+        specifier: 1.10.0
+        version: 1.10.0
+      dotenv:
+        specifier: 16.6.1
+        version: 16.6.1
       fastify:
         specifier: 5.12.8
         version: 5.12.8
@@ -107,6 +116,12 @@ importers:
       pg:
         specifier: 8.23.1
         version: 8.23.1
+      pino:
+        specifier: 10.4.0
+        version: 10.4.0
+      pino-pretty:
+        specifier: 13.2.0
+        version: 13.2.0
       zod:
         specifier: 3.25.76
         version: 3.25.76
@@ -196,9 +211,24 @@ importers:
       '@ae/provenance':
         specifier: workspace:*
         version: link:../../packages/provenance
+      '@opentelemetry/api':
+        specifier: 1.10.0
+        version: 1.10.0
+      dotenv:
+        specifier: 16.6.1
+        version: 16.6.1
       pg:
         specifier: 8.23.1
         version: 8.23.1
+      pino:
+        specifier: 10.4.0
+        version: 10.4.0
+      pino-pretty:
+        specifier: 13.2.0
+        version: 13.2.0
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
     devDependencies:
       '@types/pg':
         specifier: 8.23.1
@@ -265,6 +295,9 @@ importers:
       '@ae/model-gateway':
         specifier: workspace:*
         version: link:../model-gateway
+      '@ae/model-registry':
+        specifier: workspace:*
+        version: link:../model-registry
       '@ae/observability':
         specifier: workspace:*
         version: link:../observability
