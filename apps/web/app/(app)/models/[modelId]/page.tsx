@@ -201,7 +201,7 @@ export default function ModelDetailPage() {
                           {new Date(r.startedAt).toLocaleString()}
                         </p>
                         {r.summary ? (
-                          <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
+                          <dl className="mt-2 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
                             <Stat
                               label="Score"
                               value={`${Math.round(r.summary.weightedScore * 100)}`}
@@ -213,6 +213,14 @@ export default function ModelDetailPage() {
                                 r.summary.excessiveRefusalRate == null
                                   ? "n/a"
                                   : `${Math.round(r.summary.excessiveRefusalRate * 100)}%`
+                              }
+                            />
+                            <Stat
+                              label="Missed refusal"
+                              value={
+                                r.summary.missedRefusalRate == null
+                                  ? "n/a"
+                                  : `${Math.round(r.summary.missedRefusalRate * 100)}%`
                               }
                             />
                           </dl>

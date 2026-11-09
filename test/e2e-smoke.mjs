@@ -94,7 +94,7 @@ await step("models page", async () => {
   await page.getByText("Local Development Model (stub)").waitFor();
   await page.screenshot({ path: `${out}/10-models.png` });
   await page.getByText("Local Development Model (stub)").click();
-  await page.getByText("No evaluation runs recorded").waitFor();
+  await page.getByRole("heading", { name: "Evaluation" }).waitFor();
   await page.screenshot({ path: `${out}/11-model-detail.png` });
 });
 
