@@ -10,7 +10,13 @@ const SeedModel = z.object({
   baseModel: z.string().nullable().optional(),
   version: z.string().nullable().optional(),
   deploymentType: z.enum(["COMMERCIAL_API", "DEDICATED_ENDPOINT", "OPEN_WEIGHT", "LOCAL"]),
-  behavioralProfile: z.enum(["STANDARD", "PROFESSIONAL", "RESEARCH", "HIGH_LATITUDE", "EXPERIMENTAL"]),
+  behavioralProfile: z.enum([
+    "STANDARD",
+    "PROFESSIONAL",
+    "RESEARCH",
+    "HIGH_LATITUDE",
+    "EXPERIMENTAL",
+  ]),
   capabilities: z.array(z.string()),
   privacyClassesAllowed: z.array(z.enum(["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"])),
   evaluationStatus: z.enum(["UNTESTED", "TESTING", "APPROVED", "REJECTED"]),
@@ -66,12 +72,20 @@ function expand(value: string | null, env: NodeJS.ProcessEnv): string | null {
   return out.trim() === "" ? null : out;
 }
 
-export async function seedRegistryFromFile(q: Queryable, path: string, opts: SeedOptions): Promise<SeedResult> {
+export async function seedRegistryFromFile(
+  q: Queryable,
+  path: string,
+  opts: SeedOptions,
+): Promise<SeedResult> {
   const raw = JSON.parse(await readFile(path, "utf8"));
   return seedRegistry(q, raw, opts);
 }
 
-export async function seedRegistry(q: Queryable, raw: unknown, opts: SeedOptions): Promise<SeedResult> {
+export async function seedRegistry(
+  q: Queryable,
+  raw: unknown,
+  opts: SeedOptions,
+): Promise<SeedResult> {
   const seed = SeedFile.parse(raw);
   const result: SeedResult = { providers: [], models: [], skipped: [] };
   for (const p of seed.providers) {

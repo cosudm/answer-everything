@@ -1,7 +1,15 @@
 import { createHmac, randomBytes } from "node:crypto";
 import type { Database, Queryable, Tx } from "@ae/database";
 import { iso, isoRequired, withTransaction } from "@ae/database";
-import type { ActingIdentity, LoginInput, Principal, RegisterInput, Session, User, Workspace } from "@ae/domain";
+import type {
+  ActingIdentity,
+  LoginInput,
+  Principal,
+  RegisterInput,
+  Session,
+  User,
+  Workspace,
+} from "@ae/domain";
 import { WorkspaceSettings } from "@ae/domain";
 import type { Logger } from "@ae/observability";
 import { recordAudit } from "@ae/provenance";
@@ -87,10 +95,12 @@ export class IdentityService {
     const passwordHash = await hashPassword(input.password);
 
     return withTransaction(this.db.identity, async (tx) => {
-      const existing = await tx.query("SELECT 1 FROM users WHERE email_normalized = $1 AND deleted_at IS NULL", [
-        emailNormalized,
-      ]);
-      if (existing.rowCount) throw new IdentityError("EMAIL_TAKEN", "An account with this email already exists.");
+      const existing = await tx.query(
+        "SELECT 1 FROM users WHERE email_normalized = $1 AND deleted_at IS NULL",
+        [emailNormalized],
+      );
+      if (existing.rowCount)
+        throw new IdentityError("EMAIL_TAKEN", "An account with this email already exists.");
 
       const userRes = await tx.query(
         `INSERT INTO users (email, email_normalized, password_hash, display_name)
@@ -111,7 +121,12 @@ export class IdentityService {
       const wsRes = await tx.query(
         `INSERT INTO workspaces (slug, name, kind, owner_user_id, settings)
          VALUES ($1, $2, 'PERSONAL', $3, $4) RETURNING *`,
-        [await uniqueSlug(tx, slugify(user.displayName)), `${user.displayName}'s workspace`, user.id, JSON.stringify(settings)],
+        [
+          await uniqueSlug(tx, slugify(user.displayName)),
+          `${user.displayName}'s workspace`,
+          user.id,
+          JSON.stringify(settings),
+        ],
       );
       const workspace = toWorkspace(wsRes.rows[0]);
       await tx.query(
@@ -149,7 +164,10 @@ export class IdentityService {
 
   /* ----------------------------------------------------------------- login */
 
-  async login(input: LoginInput, meta: RequestMeta = {}): Promise<{ principal: Principal; tokens: IssuedTokens }> {
+  async login(
+    input: LoginInput,
+    meta: RequestMeta = {},
+  ): Promise<{ principal: Principal; tokens: IssuedTokens }> {
     const emailNormalized = normalizeEmail(input.email);
     const threshold = this.config.lockoutThreshold ?? 10;
     const windowMin = this.config.lockoutWindowMinutes ?? 15;
@@ -162,13 +180,18 @@ export class IdentityService {
       );
       if ((recentFailures.rows[0]?.n ?? 0) >= threshold) {
         await this.recordAttempt(tx, emailNormalized, meta, false);
-        await recordAudit(tx, { eventType: "auth.login_failed", outcome: "DENIED", details: { reason: "locked" } });
+        await recordAudit(tx, {
+          eventType: "auth.login_failed",
+          outcome: "DENIED",
+          details: { reason: "locked" },
+        });
         throw new IdentityError("ACCOUNT_LOCKED", "Too many failed attempts. Try again later.");
       }
 
-      const res = await tx.query(`SELECT * FROM users WHERE email_normalized = $1 AND deleted_at IS NULL`, [
-        emailNormalized,
-      ]);
+      const res = await tx.query(
+        `SELECT * FROM users WHERE email_normalized = $1 AND deleted_at IS NULL`,
+        [emailNormalized],
+      );
       const row = res.rows[0];
       // Constant-ish time: verify against a dummy hash when the user does not exist.
       const ok = row?.password_hash
@@ -204,16 +227,23 @@ export class IdentityService {
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
       });
-      return { principal: { user, actingIdentity: identity, sessionId: tokens.session.id }, tokens };
+      return {
+        principal: { user, actingIdentity: identity, sessionId: tokens.session.id },
+        tokens,
+      };
     });
   }
 
-  private async recordAttempt(tx: Tx, emailNormalized: string, meta: RequestMeta, succeeded: boolean) {
-    await tx.query(`INSERT INTO login_attempts (email_normalized, ip_address, succeeded) VALUES ($1, $2, $3)`, [
-      emailNormalized,
-      meta.ipAddress ?? null,
-      succeeded,
-    ]);
+  private async recordAttempt(
+    tx: Tx,
+    emailNormalized: string,
+    meta: RequestMeta,
+    succeeded: boolean,
+  ) {
+    await tx.query(
+      `INSERT INTO login_attempts (email_normalized, ip_address, succeeded) VALUES ($1, $2, $3)`,
+      [emailNormalized, meta.ipAddress ?? null, succeeded],
+    );
   }
 
   /* -------------------------------------------------------------- sessions */
@@ -269,15 +299,19 @@ export class IdentityService {
     if (identity.revokedAt) return null;
     // Fire-and-forget last_seen update; failures are logged, never surfaced.
     this.db.identity
-      .query("UPDATE sessions SET last_seen_at = now() WHERE id = $1 AND last_seen_at < now() - interval '1 minute'", [
-        row.session_id,
-      ])
+      .query(
+        "UPDATE sessions SET last_seen_at = now() WHERE id = $1 AND last_seen_at < now() - interval '1 minute'",
+        [row.session_id],
+      )
       .catch((err) => this.log.warn({ err }, "last_seen update failed"));
     return { user, actingIdentity: identity, sessionId: row.session_id };
   }
 
   /** Rotating refresh: the old session is revoked and a new pair is issued. */
-  async refresh(refreshToken: string, meta: RequestMeta = {}): Promise<{ principal: Principal; tokens: IssuedTokens }> {
+  async refresh(
+    refreshToken: string,
+    meta: RequestMeta = {},
+  ): Promise<{ principal: Principal; tokens: IssuedTokens }> {
     const hash = this.hashToken(refreshToken);
     type Outcome =
       | { kind: "ok"; principal: Principal; tokens: IssuedTokens }
@@ -296,7 +330,10 @@ export class IdentityService {
         // Reuse of a rotated refresh token is a theft signal: revoke the whole
         // chain. This write must COMMIT, so the error is thrown after the
         // transaction, not inside it.
-        await tx.query(`UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, [row.user_id]);
+        await tx.query(
+          `UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`,
+          [row.user_id],
+        );
         await recordAudit(tx, {
           actorUserId: row.user_id,
           eventType: "auth.session_revoked",
@@ -315,11 +352,19 @@ export class IdentityService {
         eventType: "auth.session_refreshed",
         outcome: "SUCCESS",
       });
-      return { kind: "ok", principal: { user, actingIdentity: identity, sessionId: tokens.session.id }, tokens };
+      return {
+        kind: "ok",
+        principal: { user, actingIdentity: identity, sessionId: tokens.session.id },
+        tokens,
+      };
     });
-    if (outcome.kind === "expired") throw new IdentityError("SESSION_INVALID", "Session expired. Sign in again.");
+    if (outcome.kind === "expired")
+      throw new IdentityError("SESSION_INVALID", "Session expired. Sign in again.");
     if (outcome.kind === "reused") {
-      this.log.warn({ userId: outcome.userId }, "refresh token reuse detected; all sessions revoked");
+      this.log.warn(
+        { userId: outcome.userId },
+        "refresh token reuse detected; all sessions revoked",
+      );
       throw new IdentityError("SESSION_INVALID", "Session invalidated. Sign in again.");
     }
     return { principal: outcome.principal, tokens: outcome.tokens };
@@ -374,7 +419,9 @@ export function slugify(input: string): string {
 async function uniqueSlug(q: Queryable, base: string): Promise<string> {
   for (let i = 0; i < 20; i++) {
     const candidate = i === 0 ? base : `${base}-${randomBytes(2).toString("hex")}`;
-    const r = await q.query("SELECT 1 FROM workspaces WHERE slug = $1 AND deleted_at IS NULL", [candidate]);
+    const r = await q.query("SELECT 1 FROM workspaces WHERE slug = $1 AND deleted_at IS NULL", [
+      candidate,
+    ]);
     if (!r.rowCount) return candidate;
   }
   return `${base}-${randomBytes(4).toString("hex")}`;

@@ -50,13 +50,41 @@ const model = (id: string, overrides: Partial<ModelVersion> = {}): ModelVersion 
 });
 
 const settings = WorkspaceSettings.parse({});
-const base = { mode: "AUTO" as const, informationPrivacyClass: "INTERNAL" as const, workspaceSettings: settings };
+const base = {
+  mode: "AUTO" as const,
+  informationPrivacyClass: "INTERNAL" as const,
+  workspaceSettings: settings,
+};
 
 describe("routeModels", () => {
-  const frontier = { model: model("frontier", { capabilities: ["chat", "streaming", "reasoning"], inputCostPerMillion: 10, outputCostPerMillion: 50 }), provider: provider("a") };
-  const cheap = { model: model("cheap", { inputCostPerMillion: 0.1, outputCostPerMillion: 0.4 }), provider: provider("a") };
-  const privateModel = { model: model("private", { deploymentType: "DEDICATED_ENDPOINT", privacyClassesAllowed: ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"] }), provider: provider("b") };
-  const experimental = { model: model("abliterated-x", { behavioralProfile: "EXPERIMENTAL", evaluationStatus: "TESTING", deploymentType: "DEDICATED_ENDPOINT", privacyClassesAllowed: ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"] }), provider: provider("b") };
+  const frontier = {
+    model: model("frontier", {
+      capabilities: ["chat", "streaming", "reasoning"],
+      inputCostPerMillion: 10,
+      outputCostPerMillion: 50,
+    }),
+    provider: provider("a"),
+  };
+  const cheap = {
+    model: model("cheap", { inputCostPerMillion: 0.1, outputCostPerMillion: 0.4 }),
+    provider: provider("a"),
+  };
+  const privateModel = {
+    model: model("private", {
+      deploymentType: "DEDICATED_ENDPOINT",
+      privacyClassesAllowed: ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"],
+    }),
+    provider: provider("b"),
+  };
+  const experimental = {
+    model: model("abliterated-x", {
+      behavioralProfile: "EXPERIMENTAL",
+      evaluationStatus: "TESTING",
+      deploymentType: "DEDICATED_ENDPOINT",
+      privacyClassesAllowed: ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"],
+    }),
+    provider: provider("b"),
+  };
   const all: RoutingCandidate[] = [frontier, cheap, privateModel, experimental];
 
   it("prefers reasoning models in AUTO for substantive questions", () => {
@@ -87,7 +115,16 @@ describe("routeModels", () => {
   it("skips disabled providers and exhausted budgets", () => {
     const disabled = { model: model("d"), provider: provider("dead", false) };
     expect(routeModels([disabled], base).ranked).toHaveLength(0);
-    const r = routeModels([frontier, { model: model("free", { inputCostPerMillion: 0, outputCostPerMillion: 0 }), provider: provider("a") }], { ...base, remainingBudgetUsd: 0 });
+    const r = routeModels(
+      [
+        frontier,
+        {
+          model: model("free", { inputCostPerMillion: 0, outputCostPerMillion: 0 }),
+          provider: provider("a"),
+        },
+      ],
+      { ...base, remainingBudgetUsd: 0 },
+    );
     expect(r.ranked.map((c) => c.model.id)).toEqual(["free"]);
   });
   it("excludes models already attempted this turn", () => {

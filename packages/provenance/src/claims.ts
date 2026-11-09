@@ -53,7 +53,8 @@ export function extractClaims(content: string, availableLabels: string[]): Extra
     const labels = referencedLabels(text).filter((l) => available.has(l));
     let claimType: ClaimType;
     if (labels.length > 0) claimType = "SOURCED_FACT";
-    else if (/\b(should|recommend|consider|suggest|advisable|best to)\b/i.test(plain)) claimType = "RECOMMENDATION";
+    else if (/\b(should|recommend|consider|suggest|advisable|best to)\b/i.test(plain))
+      claimType = "RECOMMENDATION";
     else claimType = "UNCERTAIN";
     claims.push({ text: plain, claimType, citationLabels: labels, spanStart: start, spanEnd: end });
   }
@@ -96,9 +97,13 @@ export interface ConfidenceResult {
  * Evidence coverage, not model certainty. Only meaningful when sources were
  * available; otherwise null (and the UI says so).
  */
-export function evidenceConfidence(claims: ExtractedClaim[], hadSources: boolean): ConfidenceResult {
+export function evidenceConfidence(
+  claims: ExtractedClaim[],
+  hadSources: boolean,
+): ConfidenceResult {
   if (!hadSources) return { confidence: null, basis: null };
-  if (claims.length === 0) return { confidence: 0, basis: "No material claims could be traced to the retrieved sources." };
+  if (claims.length === 0)
+    return { confidence: 0, basis: "No material claims could be traced to the retrieved sources." };
   const sourced = claims.filter((c) => c.claimType === "SOURCED_FACT").length;
   const material = claims.filter((c) => c.claimType !== "RECOMMENDATION").length || 1;
   const coverage = sourced / material;

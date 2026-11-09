@@ -36,7 +36,9 @@ export async function ensureRoles(pool: pg.Pool, roles: RoleConfig): Promise<voi
       END $$;`);
     // Password changes are safe to repeat.
     await client.query(`ALTER ROLE ae_app WITH PASSWORD '${escapeLiteral(roles.appPassword)}'`);
-    await client.query(`ALTER ROLE ae_identity WITH PASSWORD '${escapeLiteral(roles.identityPassword)}'`);
+    await client.query(
+      `ALTER ROLE ae_identity WITH PASSWORD '${escapeLiteral(roles.identityPassword)}'`,
+    );
   } finally {
     client.release();
   }
@@ -67,7 +69,11 @@ export async function appliedMigrations(pool: pg.Pool): Promise<MigrationRecord[
     const res = await client.query<{ name: string; checksum: string; applied_at: Date }>(
       "SELECT name, checksum, applied_at FROM schema_migrations ORDER BY name",
     );
-    return res.rows.map((r) => ({ name: r.name, checksum: r.checksum, appliedAt: r.applied_at.toISOString() }));
+    return res.rows.map((r) => ({
+      name: r.name,
+      checksum: r.checksum,
+      appliedAt: r.applied_at.toISOString(),
+    }));
   } finally {
     client.release();
   }
@@ -104,7 +110,10 @@ export async function migrate(pool: pg.Pool, dir = MIGRATIONS_DIR): Promise<Migr
     try {
       await client.query("BEGIN");
       await client.query(sql);
-      await client.query("INSERT INTO schema_migrations (name, checksum) VALUES ($1, $2)", [file, checksum]);
+      await client.query("INSERT INTO schema_migrations (name, checksum) VALUES ($1, $2)", [
+        file,
+        checksum,
+      ]);
       await client.query("COMMIT");
       result.applied.push(file);
     } catch (err) {

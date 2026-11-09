@@ -31,7 +31,10 @@ export function createDatabase(config: DatabaseConfig): Database {
   const max = config.max ?? 10;
   const migrator = new Pool({ connectionString: config.migratorUrl, max: 2 });
   const app = new Pool({ connectionString: config.appUrl, max });
-  const identity = new Pool({ connectionString: config.identityUrl, max: Math.max(2, Math.floor(max / 2)) });
+  const identity = new Pool({
+    connectionString: config.identityUrl,
+    max: Math.max(2, Math.floor(max / 2)),
+  });
   for (const p of [migrator, app, identity]) {
     p.on("error", (err) => {
       // Idle client errors must not crash the process; they surface on next use.

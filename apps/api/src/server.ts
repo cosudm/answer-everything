@@ -21,7 +21,12 @@ async function main() {
 
   await app.listen({ port: config.API_PORT, host: config.API_HOST });
   ctx.logger.info(
-    { url: config.API_PUBLIC_URL, env: config.AE_ENV, inlineJobs: config.AE_INLINE_JOBS, embeddingModel: ctx.embeddingModelVersionId ?? "none" },
+    {
+      url: config.API_PUBLIC_URL,
+      env: config.AE_ENV,
+      inlineJobs: config.AE_INLINE_JOBS,
+      embeddingModel: ctx.embeddingModelVersionId ?? "none",
+    },
     "Answer Everything API ready",
   );
 }

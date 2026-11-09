@@ -16,15 +16,20 @@ const ANTHROPIC_VERSION = "2023-06-01";
 export class AnthropicAdapter implements ProviderAdapter {
   readonly kind = "anthropic" as const;
 
-  async *stream(request: GenerationRequest, ctx: AdapterContext, signal?: AbortSignal): AsyncIterable<ModelEvent> {
+  async *stream(
+    request: GenerationRequest,
+    ctx: AdapterContext,
+    signal?: AbortSignal,
+  ): AsyncIterable<ModelEvent> {
     const fetchImpl = ctx.fetchImpl ?? fetch;
     // Anthropic takes system separately and requires alternating user/assistant turns.
     const messages = request.messages
       .filter((m) => m.role !== "system")
       .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
-    const systemParts = [request.system, ...request.messages.filter((m) => m.role === "system").map((m) => m.content)].filter(
-      (s): s is string => Boolean(s),
-    );
+    const systemParts = [
+      request.system,
+      ...request.messages.filter((m) => m.role === "system").map((m) => m.content),
+    ].filter((s): s is string => Boolean(s));
     const body: Record<string, unknown> = {
       model: ctx.model.providerModelName,
       messages,
@@ -35,13 +40,20 @@ export class AnthropicAdapter implements ProviderAdapter {
     if (request.temperature != null) body.temperature = request.temperature;
     if (request.stop?.length) body.stop_sequences = request.stop;
     if (request.tools?.length) {
-      body.tools = request.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters }));
+      body.tools = request.tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.parameters,
+      }));
     }
 
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     signal?.addEventListener("abort", onAbort);
-    const timer = setTimeout(() => controller.abort(new Error("provider timeout")), ctx.timeoutMs ?? 120_000);
+    const timer = setTimeout(
+      () => controller.abort(new Error("provider timeout")),
+      ctx.timeoutMs ?? 120_000,
+    );
 
     let response: Response;
     try {
@@ -95,7 +107,8 @@ export class AnthropicAdapter implements ProviderAdapter {
         const type = (ev.type as string) ?? msg.event;
         switch (type) {
           case "message_start": {
-            const m = ev.message as { usage?: { input_tokens?: number; cache_read_input_tokens?: number } } | undefined;
+            const m = ev.message as
+              { usage?: { input_tokens?: number; cache_read_input_tokens?: number } } | undefined;
             inputTokens = m?.usage?.input_tokens ?? 0;
             cachedInput = m?.usage?.cache_read_input_tokens ?? null;
             break;
@@ -108,10 +121,12 @@ export class AnthropicAdapter implements ProviderAdapter {
           }
           case "content_block_delta": {
             const idx = Number(ev.index ?? 0);
-            const d = ev.delta as { type: string; text?: string; thinking?: string; partial_json?: string } | undefined;
+            const d = ev.delta as
+              { type: string; text?: string; thinking?: string; partial_json?: string } | undefined;
             if (!d) break;
             if (d.type === "text_delta" && d.text) yield { type: "delta", text: d.text };
-            else if (d.type === "thinking_delta" && d.thinking) yield { type: "reasoning_delta", text: d.thinking };
+            else if (d.type === "thinking_delta" && d.thinking)
+              yield { type: "reasoning_delta", text: d.thinking };
             else if (d.type === "input_json_delta" && d.partial_json) {
               const b = blocks.get(idx);
               if (b) b.json += d.partial_json;
@@ -122,7 +137,14 @@ export class AnthropicAdapter implements ProviderAdapter {
             const idx = Number(ev.index ?? 0);
             const b = blocks.get(idx);
             if (b?.type === "tool_use") {
-              yield { type: "tool_call", call: { id: b.id ?? `toolu_${idx}`, name: b.name ?? "", argumentsJson: b.json || "{}" } };
+              yield {
+                type: "tool_call",
+                call: {
+                  id: b.id ?? `toolu_${idx}`,
+                  name: b.name ?? "",
+                  argumentsJson: b.json || "{}",
+                },
+              };
             }
             break;
           }
@@ -139,7 +161,11 @@ export class AnthropicAdapter implements ProviderAdapter {
             yield {
               type: "error",
               error: {
-                kind: overloaded ? "PROVIDER_UNAVAILABLE" : e?.type === "rate_limit_error" ? "RATE_LIMITED" : "UNKNOWN",
+                kind: overloaded
+                  ? "PROVIDER_UNAVAILABLE"
+                  : e?.type === "rate_limit_error"
+                    ? "RATE_LIMITED"
+                    : "UNKNOWN",
                 message: e?.message ?? "provider error",
                 httpStatus: null,
                 retryable: overloaded || e?.type === "rate_limit_error",
@@ -164,12 +190,21 @@ export class AnthropicAdapter implements ProviderAdapter {
       signal?.removeEventListener("abort", onAbort);
     }
 
-    const usage: TokenUsage = { inputTokens, outputTokens, reasoningTokens: null, cachedInputTokens: cachedInput, reported: true };
+    const usage: TokenUsage = {
+      inputTokens,
+      outputTokens,
+      reasoningTokens: null,
+      cachedInputTokens: cachedInput,
+      reported: true,
+    };
     yield { type: "usage", usage };
 
     if (finish !== "error" && finish !== "cancelled") {
       if (stopReason === "refusal") {
-        yield { type: "refusal", refusal: { code: "refusal", message: null, source: "stop_reason", rawCategory: null } };
+        yield {
+          type: "refusal",
+          refusal: { code: "refusal", message: null, source: "stop_reason", rawCategory: null },
+        };
         finish = "refusal";
       } else if (stopReason === "max_tokens") finish = "length";
       else if (stopReason === "tool_use") finish = "tool_calls";
@@ -180,7 +215,13 @@ export class AnthropicAdapter implements ProviderAdapter {
 
   async embed(_request: EmbeddingRequest, _ctx: AdapterContext): Promise<never> {
     throw Object.assign(new Error("Anthropic does not provide an embeddings endpoint"), {
-      providerError: { kind: "INVALID_REQUEST", message: "no embeddings endpoint", httpStatus: null, retryable: false, providerRequestId: null },
+      providerError: {
+        kind: "INVALID_REQUEST",
+        message: "no embeddings endpoint",
+        httpStatus: null,
+        retryable: false,
+        providerRequestId: null,
+      },
     });
   }
 
@@ -189,10 +230,17 @@ export class AnthropicAdapter implements ProviderAdapter {
     const started = Date.now();
     try {
       const response = await fetchImpl(`${ctx.baseUrl.replace(/\/$/, "")}/v1/models`, {
-        headers: { "anthropic-version": ANTHROPIC_VERSION, ...(ctx.apiKey ? { "x-api-key": ctx.apiKey } : {}) },
+        headers: {
+          "anthropic-version": ANTHROPIC_VERSION,
+          ...(ctx.apiKey ? { "x-api-key": ctx.apiKey } : {}),
+        },
         signal: AbortSignal.timeout(ctx.timeoutMs ?? 10_000),
       });
-      return { ok: response.ok, latencyMs: Date.now() - started, detail: response.ok ? null : `HTTP ${response.status}` };
+      return {
+        ok: response.ok,
+        latencyMs: Date.now() - started,
+        detail: response.ok ? null : `HTTP ${response.status}`,
+      };
     } catch (err) {
       return { ok: false, latencyMs: Date.now() - started, detail: (err as Error).message };
     }

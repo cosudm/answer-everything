@@ -2,7 +2,12 @@ import type { Queryable } from "@ae/database";
 import type { ModelGateway } from "@ae/model-gateway";
 import { recordProvenance } from "@ae/provenance";
 import { chunkText } from "./chunking.js";
-import { getKnowledgeObject, getKnowledgeText, replaceChunks, updateKnowledgeStatus } from "./repository.js";
+import {
+  getKnowledgeObject,
+  getKnowledgeText,
+  replaceChunks,
+  updateKnowledgeStatus,
+} from "./repository.js";
 
 export interface IngestOptions {
   knowledgeObjectId: string;
@@ -24,7 +29,9 @@ const SUPPORTED_TEXT_TYPES = new Set([
 
 export function isSupportedMimeType(mime: string | null): boolean {
   if (!mime) return true;
-  return SUPPORTED_TEXT_TYPES.has(mime.split(";")[0]!.trim().toLowerCase()) || mime.startsWith("text/");
+  return (
+    SUPPORTED_TEXT_TYPES.has(mime.split(";")[0]!.trim().toLowerCase()) || mime.startsWith("text/")
+  );
 }
 
 /**
@@ -34,12 +41,20 @@ export function isSupportedMimeType(mime: string | null): boolean {
  * are recorded as FAILED with an explicit "unsupported format" detail rather
  * than silently indexing nothing.
  */
-export async function ingestKnowledgeObject(q: Queryable, opts: IngestOptions): Promise<{ chunkCount: number }> {
+export async function ingestKnowledgeObject(
+  q: Queryable,
+  opts: IngestOptions,
+): Promise<{ chunkCount: number }> {
   const object = await getKnowledgeObject(q, opts.knowledgeObjectId);
   if (!object) throw new Error(`knowledge object ${opts.knowledgeObjectId} not found`);
 
   if (!isSupportedMimeType(object.mimeType)) {
-    await updateKnowledgeStatus(q, object.id, "FAILED", `Unsupported format ${object.mimeType}. Text extraction for this type is not yet connected.`);
+    await updateKnowledgeStatus(
+      q,
+      object.id,
+      "FAILED",
+      `Unsupported format ${object.mimeType}. Text extraction for this type is not yet connected.`,
+    );
     return { chunkCount: 0 };
   }
 
@@ -91,7 +106,13 @@ export async function ingestKnowledgeObject(q: Queryable, opts: IngestOptions): 
   const stored = await replaceChunks(
     q,
     { id: object.id, workspaceId: object.workspaceId },
-    chunks.map((c, i) => ({ ordinal: c.ordinal, content: c.content, tokenCount: c.tokenCount, locator: c.locator, embedding: embeddings[i] ?? null })),
+    chunks.map((c, i) => ({
+      ordinal: c.ordinal,
+      content: c.content,
+      tokenCount: c.tokenCount,
+      locator: c.locator,
+      embedding: embeddings[i] ?? null,
+    })),
     opts.embeddingModelVersionId,
   );
   await recordProvenance(q, {

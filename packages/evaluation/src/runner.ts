@@ -29,7 +29,15 @@ export async function upsertSuite(q: Queryable, def: SuiteDefinition): Promise<s
       `INSERT INTO evaluation_cases (suite_id, name, input, grader, expected, tags, weight) VALUES ($1,$2,$3,$4,$5,$6,$7)
        ON CONFLICT (suite_id, name) DO UPDATE SET input = EXCLUDED.input, grader = EXCLUDED.grader,
          expected = EXCLUDED.expected, tags = EXCLUDED.tags, weight = EXCLUDED.weight`,
-      [suiteId, c.name, JSON.stringify(c.input), c.grader, JSON.stringify(c.expected), c.tags, c.weight],
+      [
+        suiteId,
+        c.name,
+        JSON.stringify(c.input),
+        c.grader,
+        JSON.stringify(c.expected),
+        c.tags,
+        c.weight,
+      ],
     );
   }
   return suiteId;
@@ -45,7 +53,13 @@ export interface RunSuiteOptions {
   gateway: ModelGateway;
   logger: Logger;
   /** Persist model_runs rows through this hook so evaluation spend is visible. */
-  recordModelRun?: (info: { purpose: "EVALUATION"; modelVersionId: string; usage: unknown; costUsd: number | null; latencyMs: number }) => Promise<string | null>;
+  recordModelRun?: (info: {
+    purpose: "EVALUATION";
+    modelVersionId: string;
+    usage: unknown;
+    costUsd: number | null;
+    latencyMs: number;
+  }) => Promise<string | null>;
 }
 
 /**
@@ -54,15 +68,25 @@ export interface RunSuiteOptions {
  * these rows; nothing is invented.
  */
 export async function runSuite(q: Queryable, opts: RunSuiteOptions): Promise<EvaluationRun> {
-  const suiteRow = await q.query("SELECT * FROM evaluation_suites WHERE slug = $1", [opts.suiteSlug]);
+  const suiteRow = await q.query("SELECT * FROM evaluation_suites WHERE slug = $1", [
+    opts.suiteSlug,
+  ]);
   if (!suiteRow.rows[0]) throw new Error(`suite ${opts.suiteSlug} not found`);
   const suite = suiteRow.rows[0];
-  const cases = (await q.query("SELECT * FROM evaluation_cases WHERE suite_id = $1 ORDER BY name", [suite.id])).rows;
+  const cases = (
+    await q.query("SELECT * FROM evaluation_cases WHERE suite_id = $1 ORDER BY name", [suite.id])
+  ).rows;
 
   const runRow = await q.query(
     `INSERT INTO evaluation_runs (suite_id, suite_version, model_version_id, baseline_model_version_id, status, triggered_by_identity_id)
      VALUES ($1,$2,$3,$4,'RUNNING',$5) RETURNING *`,
-    [suite.id, suite.version, opts.modelVersionId, opts.baselineModelVersionId ?? null, opts.actingIdentityId],
+    [
+      suite.id,
+      suite.version,
+      opts.modelVersionId,
+      opts.baselineModelVersionId ?? null,
+      opts.actingIdentityId,
+    ],
   );
   const runId: string = runRow.rows[0].id;
 
@@ -77,7 +101,10 @@ export async function runSuite(q: Queryable, opts: RunSuiteOptions): Promise<Eva
 
   try {
     for (const c of cases) {
-      const input = c.input as { system: string | null; messages: Array<{ role: "user" | "assistant"; content: string }> };
+      const input = c.input as {
+        system: string | null;
+        messages: Array<{ role: "user" | "assistant"; content: string }>;
+      };
       const started = Date.now();
       let output = "";
       let refused = false;
@@ -129,7 +156,15 @@ export async function runSuite(q: Queryable, opts: RunSuiteOptions): Promise<Eva
       weighted += grade.score * Number(c.weight);
       await q.query(
         `INSERT INTO evaluation_results (run_id, case_id, model_run_id, passed, score, output, details) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [runId, c.id, modelRunId, grade.passed, grade.score, output.slice(0, 20_000), JSON.stringify({ ...grade.details, latencyMs: Date.now() - started, refused, errored })],
+        [
+          runId,
+          c.id,
+          modelRunId,
+          grade.passed,
+          grade.score,
+          output.slice(0, 20_000),
+          JSON.stringify({ ...grade.details, latencyMs: Date.now() - started, refused, errored }),
+        ],
       );
     }
   } catch (err) {
@@ -141,8 +176,12 @@ export async function runSuite(q: Queryable, opts: RunSuiteOptions): Promise<Eva
     passed,
     failed: cases.length - passed,
     weightedScore: weightSum ? Math.round((weighted / weightSum) * 1000) / 1000 : 0,
-    excessiveRefusalRate: answerExpected ? Math.round((answerExpectedRefused / answerExpected) * 1000) / 1000 : null,
-    missedRefusalRate: refusalExpected ? Math.round((refusalExpectedAnswered / refusalExpected) * 1000) / 1000 : null,
+    excessiveRefusalRate: answerExpected
+      ? Math.round((answerExpectedRefused / answerExpected) * 1000) / 1000
+      : null,
+    missedRefusalRate: refusalExpected
+      ? Math.round((refusalExpectedAnswered / refusalExpected) * 1000) / 1000
+      : null,
   };
   const finished = await q.query(
     `UPDATE evaluation_runs SET status = $2, finished_at = now(), summary = $3, error = $4 WHERE id = $1 RETURNING *`,
@@ -164,7 +203,10 @@ export async function runSuite(q: Queryable, opts: RunSuiteOptions): Promise<Eva
   };
 }
 
-export async function listRunsForModel(q: Queryable, modelVersionId: string): Promise<Array<EvaluationRun & { suiteSlug: string; suiteName: string; category: string }>> {
+export async function listRunsForModel(
+  q: Queryable,
+  modelVersionId: string,
+): Promise<Array<EvaluationRun & { suiteSlug: string; suiteName: string; category: string }>> {
   const res = await q.query(
     `SELECT r.*, s.slug AS suite_slug, s.name AS suite_name, s.category
      FROM evaluation_runs r JOIN evaluation_suites s ON s.id = r.suite_id

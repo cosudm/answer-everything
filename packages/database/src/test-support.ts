@@ -8,7 +8,9 @@ import { ensureRoles, migrate, resetSchema } from "./migrate.js";
  * DATABASE_URL an explicit skip, never a silent pass.
  */
 export function databaseAvailable(): boolean {
-  return Boolean(process.env.DATABASE_URL && process.env.DATABASE_APP_URL && process.env.DATABASE_IDENTITY_URL);
+  return Boolean(
+    process.env.DATABASE_URL && process.env.DATABASE_APP_URL && process.env.DATABASE_IDENTITY_URL,
+  );
 }
 
 export async function prepareTestDatabase(): Promise<void> {

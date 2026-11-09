@@ -1,6 +1,14 @@
 import type { Queryable } from "@ae/database";
 import { iso, isoRequired } from "@ae/database";
-import type { Attachment, Conversation, Message, MessageRole, MessageStatus, ModelMode, PrivacyClass } from "@ae/domain";
+import type {
+  Attachment,
+  Conversation,
+  Message,
+  MessageRole,
+  MessageStatus,
+  ModelMode,
+  PrivacyClass,
+} from "@ae/domain";
 
 export function toConversation(r: Record<string, unknown>): Conversation {
   return {
@@ -76,11 +84,17 @@ export async function createConversation(
 }
 
 export async function getConversation(q: Queryable, id: string): Promise<Conversation | null> {
-  const res = await q.query("SELECT * FROM conversations WHERE id = $1 AND deleted_at IS NULL", [id]);
+  const res = await q.query("SELECT * FROM conversations WHERE id = $1 AND deleted_at IS NULL", [
+    id,
+  ]);
   return res.rows[0] ? toConversation(res.rows[0]) : null;
 }
 
-export async function listConversations(q: Queryable, workspaceId: string, opts: { projectId?: string | null; limit?: number } = {}): Promise<Conversation[]> {
+export async function listConversations(
+  q: Queryable,
+  workspaceId: string,
+  opts: { projectId?: string | null; limit?: number } = {},
+): Promise<Conversation[]> {
   const res = await q.query(
     `SELECT * FROM conversations WHERE workspace_id = $1 AND deleted_at IS NULL AND ($2::uuid IS NULL OR project_id = $2)
      ORDER BY COALESCE(last_message_at, created_at) DESC LIMIT $3`,
@@ -92,7 +106,12 @@ export async function listConversations(q: Queryable, workspaceId: string, opts:
 export async function updateConversation(
   q: Queryable,
   id: string,
-  patch: { title?: string | null; privacyClass?: PrivacyClass; modelMode?: ModelMode; pinnedModelVersionId?: string | null },
+  patch: {
+    title?: string | null;
+    privacyClass?: PrivacyClass;
+    modelMode?: ModelMode;
+    pinnedModelVersionId?: string | null;
+  },
 ): Promise<Conversation | null> {
   const res = await q.query(
     `UPDATE conversations SET
@@ -101,17 +120,32 @@ export async function updateConversation(
        model_mode = COALESCE($5, model_mode),
        pinned_model_version_id = CASE WHEN $6::boolean THEN $7::uuid ELSE pinned_model_version_id END
      WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
-    [id, patch.title !== undefined, patch.title ?? null, patch.privacyClass ?? null, patch.modelMode ?? null, patch.pinnedModelVersionId !== undefined, patch.pinnedModelVersionId ?? null],
+    [
+      id,
+      patch.title !== undefined,
+      patch.title ?? null,
+      patch.privacyClass ?? null,
+      patch.modelMode ?? null,
+      patch.pinnedModelVersionId !== undefined,
+      patch.pinnedModelVersionId ?? null,
+    ],
   );
   return res.rows[0] ? toConversation(res.rows[0]) : null;
 }
 
 export async function softDeleteConversation(q: Queryable, id: string): Promise<boolean> {
-  const res = await q.query("UPDATE conversations SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL", [id]);
+  const res = await q.query(
+    "UPDATE conversations SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL",
+    [id],
+  );
   return (res.rowCount ?? 0) > 0;
 }
 
-export async function listMessages(q: Queryable, conversationId: string, opts: { limit?: number } = {}): Promise<Message[]> {
+export async function listMessages(
+  q: Queryable,
+  conversationId: string,
+  opts: { limit?: number } = {},
+): Promise<Message[]> {
   const res = await q.query(
     `SELECT * FROM (SELECT * FROM messages WHERE conversation_id = $1 ORDER BY sequence DESC LIMIT $2) m ORDER BY sequence ASC`,
     [conversationId, Math.min(opts.limit ?? 200, 500)],
@@ -172,7 +206,12 @@ export async function appendMessage(
 export async function finalizeMessage(
   q: Queryable,
   id: string,
-  patch: { content: string; status: MessageStatus; answerRecordId: string | null; metadata?: Record<string, unknown> },
+  patch: {
+    content: string;
+    status: MessageStatus;
+    answerRecordId: string | null;
+    metadata?: Record<string, unknown>;
+  },
 ): Promise<Message> {
   const res = await q.query(
     `UPDATE messages SET content = $2, status = $3, answer_record_id = $4, metadata = metadata || $5::jsonb WHERE id = $1 RETURNING *`,

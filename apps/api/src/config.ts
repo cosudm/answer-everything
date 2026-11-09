@@ -20,7 +20,11 @@ const Env = z.object({
     .optional()
     .transform((v) => v === "true"),
   AE_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(120),
-  AE_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(10 * 1024 * 1024),
+  AE_MAX_UPLOAD_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10 * 1024 * 1024),
   AE_EMBEDDING_MODEL: z.string().default("local-dev/dev-embed-1536"),
   AE_INLINE_JOBS: z
     .string()
@@ -40,8 +44,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
   const cfg = parsed.data;
   if (cfg.AE_ENV === "prod") {
     if (!cfg.AE_COOKIE_SECURE) throw new Error("AE_COOKIE_SECURE must be true in prod");
-    if (cfg.AE_DEFAULT_ALLOW_EXPERIMENTAL) throw new Error("AE_DEFAULT_ALLOW_EXPERIMENTAL must be false in prod");
-    if (cfg.AE_SESSION_SECRET.includes("change-me")) throw new Error("AE_SESSION_SECRET is a placeholder");
+    if (cfg.AE_DEFAULT_ALLOW_EXPERIMENTAL)
+      throw new Error("AE_DEFAULT_ALLOW_EXPERIMENTAL must be false in prod");
+    if (cfg.AE_SESSION_SECRET.includes("change-me"))
+      throw new Error("AE_SESSION_SECRET is a placeholder");
   }
   return { ...cfg, isProd: cfg.AE_ENV === "prod" };
 }

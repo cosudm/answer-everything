@@ -20,7 +20,10 @@ export function formatSources(sources: SourceBlock[]): string {
   if (!sources.length) return "";
   const lines = ["Sources available for this question (cite by label):", ""];
   for (const s of sources) {
-    const where = s.hit.locator && typeof s.hit.locator.heading === "string" ? ` — ${s.hit.locator.heading}` : "";
+    const where =
+      s.hit.locator && typeof s.hit.locator.heading === "string"
+        ? ` — ${s.hit.locator.heading}`
+        : "";
     lines.push(`[${s.label}] ${s.hit.title}${where}`);
     lines.push(s.hit.content.trim());
     lines.push("");
@@ -28,13 +31,21 @@ export function formatSources(sources: SourceBlock[]): string {
   return lines.join("\n").trim();
 }
 
-export function buildSystemPrompt(parts: { projectInstructions: string | null; sources: SourceBlock[] }): string {
+export function buildSystemPrompt(parts: {
+  projectInstructions: string | null;
+  sources: SourceBlock[];
+}): string {
   const sections = [PLATFORM_SYSTEM_PROMPT];
   if (parts.projectInstructions?.trim()) {
-    sections.push(`Project instructions from the workspace owner:\n${parts.projectInstructions.trim()}`);
+    sections.push(
+      `Project instructions from the workspace owner:\n${parts.projectInstructions.trim()}`,
+    );
   }
   const src = formatSources(parts.sources);
   if (src) sections.push(src);
-  else sections.push("No workspace sources were retrieved for this question. Answer from general knowledge and say so where it matters.");
+  else
+    sections.push(
+      "No workspace sources were retrieved for this question. Answer from general knowledge and say so where it matters.",
+    );
   return sections.join("\n\n---\n\n");
 }

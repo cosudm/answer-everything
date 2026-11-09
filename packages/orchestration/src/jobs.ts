@@ -95,7 +95,11 @@ export class JobRunner {
 
   private async ingest(job: Job): Promise<void> {
     const payload = KnowledgeIngestPayload.extend({ userId: z.string().uuid() }).parse(job.payload);
-    const ctx = { userId: payload.userId, workspaceId: payload.workspaceId, identityId: PLATFORM_SERVICE_IDENTITY_ID };
+    const ctx = {
+      userId: payload.userId,
+      workspaceId: payload.workspaceId,
+      identityId: PLATFORM_SERVICE_IDENTITY_ID,
+    };
     try {
       const result = await withTenant(this.deps.db.app, ctx, (tx) =>
         ingestKnowledgeObject(tx, {
@@ -105,19 +109,38 @@ export class JobRunner {
           gateway: this.deps.gateway,
         }),
       );
-      void this.deps.events?.emit({ type: "knowledge.ready", workspaceId: payload.workspaceId, knowledgeObjectId: payload.knowledgeObjectId, chunkCount: result.chunkCount });
+      void this.deps.events?.emit({
+        type: "knowledge.ready",
+        workspaceId: payload.workspaceId,
+        knowledgeObjectId: payload.knowledgeObjectId,
+        chunkCount: result.chunkCount,
+      });
     } catch (err) {
       await withTenant(this.deps.db.app, ctx, (tx) =>
-        updateKnowledgeStatus(tx, payload.knowledgeObjectId, "FAILED", `Ingestion failed: ${(err as Error).message.slice(0, 500)}`),
+        updateKnowledgeStatus(
+          tx,
+          payload.knowledgeObjectId,
+          "FAILED",
+          `Ingestion failed: ${(err as Error).message.slice(0, 500)}`,
+        ),
       ).catch(() => undefined);
-      void this.deps.events?.emit({ type: "knowledge.failed", workspaceId: payload.workspaceId, knowledgeObjectId: payload.knowledgeObjectId, reason: (err as Error).message });
+      void this.deps.events?.emit({
+        type: "knowledge.failed",
+        workspaceId: payload.workspaceId,
+        knowledgeObjectId: payload.knowledgeObjectId,
+        reason: (err as Error).message,
+      });
       throw err;
     }
   }
 
   private async evaluate(job: Job): Promise<void> {
     const p = EvaluationPayload.parse(job.payload);
-    const ctx = { userId: p.userId, workspaceId: p.workspaceId, identityId: PLATFORM_SERVICE_IDENTITY_ID };
+    const ctx = {
+      userId: p.userId,
+      workspaceId: p.workspaceId,
+      identityId: PLATFORM_SERVICE_IDENTITY_ID,
+    };
     await withTenant(this.deps.db.app, ctx, (tx) =>
       runSuite(tx, {
         suiteSlug: p.suiteSlug,

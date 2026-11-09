@@ -60,9 +60,19 @@ const MIN_ROLE: Partial<Record<Action, WorkspaceRole>> = {
 };
 
 /** Actions where a MEMBER may act only on resources they own; others need ADMIN. */
-const OWNER_OR_ADMIN: Set<Action> = new Set(["conversation.delete", "knowledge.update", "knowledge.delete", "project.update"]);
+const OWNER_OR_ADMIN: Set<Action> = new Set([
+  "conversation.delete",
+  "knowledge.update",
+  "knowledge.delete",
+  "project.update",
+]);
 
-const PLATFORM_ADMIN_ONLY: Set<Action> = new Set(["model.register", "model.approve", "model.disable", "model.evaluate"]);
+const PLATFORM_ADMIN_ONLY: Set<Action> = new Set([
+  "model.register",
+  "model.approve",
+  "model.disable",
+  "model.evaluate",
+]);
 
 const SELF_ONLY: Set<Action> = new Set(["account.export", "account.delete"]);
 
@@ -82,7 +92,11 @@ const AGENT_FORBIDDEN: Set<Action> = new Set([
   "action.execute",
 ]);
 
-export function deny(reason: string, policyIds: string[], extra: string[] = []): AuthorizationDecision {
+export function deny(
+  reason: string,
+  policyIds: string[],
+  extra: string[] = [],
+): AuthorizationDecision {
   return { outcome: "DENY", policyIds, reasonCodes: [reason, ...extra] };
 }
 
@@ -109,7 +123,12 @@ export function evaluate(req: AuthorizationRequest, facts: PolicyFacts): Authori
   if (PLATFORM_ADMIN_ONLY.has(req.action)) {
     policies.push("P-PLATFORM-ADMIN");
     if (facts.user?.platformRole === "PLATFORM_ADMIN") {
-      return { outcome: "ALLOW", policyIds: policies, reasonCodes: [REASON.ALLOWED_BY_ROLE], obligations: { recordAudit: true } };
+      return {
+        outcome: "ALLOW",
+        policyIds: policies,
+        reasonCodes: [REASON.ALLOWED_BY_ROLE],
+        obligations: { recordAudit: true },
+      };
     }
     return deny(REASON.ROLE_INSUFFICIENT, policies);
   }
@@ -118,7 +137,12 @@ export function evaluate(req: AuthorizationRequest, facts: PolicyFacts): Authori
   if (SELF_ONLY.has(req.action)) {
     policies.push("P-SELF");
     if (req.userId && req.resource.ownerUserId === req.userId && facts.identity.kind === "USER") {
-      return { outcome: "ALLOW", policyIds: policies, reasonCodes: [REASON.ALLOWED_SELF], obligations: { recordAudit: true } };
+      return {
+        outcome: "ALLOW",
+        policyIds: policies,
+        reasonCodes: [REASON.ALLOWED_SELF],
+        obligations: { recordAudit: true },
+      };
     }
     return deny(REASON.OWNER_ONLY, policies);
   }
@@ -152,7 +176,12 @@ export function evaluate(req: AuthorizationRequest, facts: PolicyFacts): Authori
   }
 
   // P-PRIVACY-WORKSPACE: nothing may be classified above the workspace ceiling.
-  if ((req.action === "knowledge.create" || req.action === "knowledge.update" || req.action === "project.create") && req.resource.privacyClass) {
+  if (
+    (req.action === "knowledge.create" ||
+      req.action === "knowledge.update" ||
+      req.action === "project.create") &&
+    req.resource.privacyClass
+  ) {
     policies.push("P-PRIVACY-WORKSPACE");
     const max = facts.workspace?.settings.maxPrivacyClass ?? "INTERNAL";
     if (PRIVACY_RANK[req.resource.privacyClass] > PRIVACY_RANK[max]) {
@@ -163,13 +192,18 @@ export function evaluate(req: AuthorizationRequest, facts: PolicyFacts): Authori
   // P-AI-USE: knowledge the owner marked as not for AI never reaches a model.
   if (req.action === "knowledge.retrieve_for_model") {
     policies.push("P-AI-USE");
-    if (req.resource.attributes?.aiUsePermission === "DENY") return deny(REASON.AI_USE_DENIED, policies);
+    if (req.resource.attributes?.aiUsePermission === "DENY")
+      return deny(REASON.AI_USE_DENIED, policies);
   }
 
   // P-MODEL: using a model requires it to be enabled, approved (or explicitly
   // allowed while testing), permitted for the provider class, and cleared for
   // the information privacy class.
-  if (req.action === "model.use" || req.action === "model.compare" || req.action === "knowledge.retrieve_for_model") {
+  if (
+    req.action === "model.use" ||
+    req.action === "model.compare" ||
+    req.action === "knowledge.retrieve_for_model"
+  ) {
     if (req.modelVersionId) {
       policies.push("P-MODEL");
       const m = facts.model;
@@ -179,7 +213,10 @@ export function evaluate(req: AuthorizationRequest, facts: PolicyFacts): Authori
       if (m.evaluationStatus !== "APPROVED" || m.behavioralProfile === "EXPERIMENTAL") {
         if (!allowExperimental) return deny(REASON.EXPERIMENTAL_NOT_ALLOWED, policies);
       }
-      if (m.deploymentType === "COMMERCIAL_API" && facts.workspace?.settings.allowCommercialProviders === false) {
+      if (
+        m.deploymentType === "COMMERCIAL_API" &&
+        facts.workspace?.settings.allowCommercialProviders === false
+      ) {
         return deny(REASON.COMMERCIAL_PROVIDER_NOT_ALLOWED, policies);
       }
       const cls = req.informationPrivacyClass ?? req.resource.privacyClass ?? null;
@@ -208,7 +245,11 @@ export function evaluate(req: AuthorizationRequest, facts: PolicyFacts): Authori
     for (const c of allowed) if (PRIVACY_RANK[c] > PRIVACY_RANK[max]) max = c;
     obligations.maxPrivacyClass = max;
   }
-  if (req.action.endsWith(".delete") || req.action === "workspace.settings.update" || req.action === "workspace.members.manage") {
+  if (
+    req.action.endsWith(".delete") ||
+    req.action === "workspace.settings.update" ||
+    req.action === "workspace.members.manage"
+  ) {
     obligations.recordAudit = true;
   }
 

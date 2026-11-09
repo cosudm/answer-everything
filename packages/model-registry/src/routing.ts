@@ -1,4 +1,11 @@
-import type { ModelCapability, ModelMode, ModelVersion, PrivacyClass, Provider, WorkspaceSettings } from "@ae/domain";
+import type {
+  ModelCapability,
+  ModelMode,
+  ModelVersion,
+  PrivacyClass,
+  Provider,
+  WorkspaceSettings,
+} from "@ae/domain";
 
 export interface RoutingCandidate {
   model: ModelVersion;
@@ -53,23 +60,68 @@ export function routeModels(candidates: RoutingCandidate[], c: RoutingConstraint
 
   for (const cand of candidates) {
     const { model, provider } = cand;
-    const out = (reason: string) => excluded.push({ modelId: model.id, displayName: model.displayName, reason });
-    if (exclude.has(model.id)) { out("already attempted this turn"); continue; }
-    if (!model.enabled || !provider.enabled) { out("disabled"); continue; }
-    if (!model.capabilities.includes("chat")) { out("not a chat model"); continue; }
-    if (model.evaluationStatus === "REJECTED") { out("rejected by evaluation"); continue; }
-    const needsOptIn = model.evaluationStatus !== "APPROVED" || model.behavioralProfile === "EXPERIMENTAL";
-    if (needsOptIn && !allowExperimental) { out("not approved; workspace has not enabled experimental models"); continue; }
-    if (model.deploymentType === "COMMERCIAL_API" && !c.workspaceSettings.allowCommercialProviders) { out("commercial providers disabled in workspace"); continue; }
-    if (!model.privacyClassesAllowed.includes(c.informationPrivacyClass)) { out(`not cleared for ${c.informationPrivacyClass} information`); continue; }
-    if (c.mode === "PRIVATE" && model.deploymentType === "COMMERCIAL_API") { out("Private mode excludes commercial APIs"); continue; }
-    if (!MODE_PROFILES[c.mode].includes(model.behavioralProfile)) { out(`profile ${model.behavioralProfile} not in ${c.mode} mode`); continue; }
+    const out = (reason: string) =>
+      excluded.push({ modelId: model.id, displayName: model.displayName, reason });
+    if (exclude.has(model.id)) {
+      out("already attempted this turn");
+      continue;
+    }
+    if (!model.enabled || !provider.enabled) {
+      out("disabled");
+      continue;
+    }
+    if (!model.capabilities.includes("chat")) {
+      out("not a chat model");
+      continue;
+    }
+    if (model.evaluationStatus === "REJECTED") {
+      out("rejected by evaluation");
+      continue;
+    }
+    const needsOptIn =
+      model.evaluationStatus !== "APPROVED" || model.behavioralProfile === "EXPERIMENTAL";
+    if (needsOptIn && !allowExperimental) {
+      out("not approved; workspace has not enabled experimental models");
+      continue;
+    }
+    if (
+      model.deploymentType === "COMMERCIAL_API" &&
+      !c.workspaceSettings.allowCommercialProviders
+    ) {
+      out("commercial providers disabled in workspace");
+      continue;
+    }
+    if (!model.privacyClassesAllowed.includes(c.informationPrivacyClass)) {
+      out(`not cleared for ${c.informationPrivacyClass} information`);
+      continue;
+    }
+    if (c.mode === "PRIVATE" && model.deploymentType === "COMMERCIAL_API") {
+      out("Private mode excludes commercial APIs");
+      continue;
+    }
+    if (!MODE_PROFILES[c.mode].includes(model.behavioralProfile)) {
+      out(`profile ${model.behavioralProfile} not in ${c.mode} mode`);
+      continue;
+    }
     for (const cap of c.requiredCapabilities ?? []) {
-      if (!model.capabilities.includes(cap)) { out(`missing capability ${cap}`); break; }
+      if (!model.capabilities.includes(cap)) {
+        out(`missing capability ${cap}`);
+        break;
+      }
     }
     if (excluded.at(-1)?.modelId === model.id) continue;
-    if (c.estimatedInputTokens && model.contextWindow < c.estimatedInputTokens * 1.2) { out("context window too small"); continue; }
-    if (c.remainingBudgetUsd != null && c.remainingBudgetUsd <= 0 && (model.inputCostPerMillion ?? 0) > 0) { out("workspace budget exhausted"); continue; }
+    if (c.estimatedInputTokens && model.contextWindow < c.estimatedInputTokens * 1.2) {
+      out("context window too small");
+      continue;
+    }
+    if (
+      c.remainingBudgetUsd != null &&
+      c.remainingBudgetUsd <= 0 &&
+      (model.inputCostPerMillion ?? 0) > 0
+    ) {
+      out("workspace budget exhausted");
+      continue;
+    }
     eligible.push(cand);
   }
 
@@ -102,7 +154,9 @@ export function routeModels(candidates: RoutingCandidate[], c: RoutingConstraint
     return s;
   };
 
-  const ranked = [...eligible].sort((a, b) => score(b) - score(a) || a.model.displayName.localeCompare(b.model.displayName));
+  const ranked = [...eligible].sort(
+    (a, b) => score(b) - score(a) || a.model.displayName.localeCompare(b.model.displayName),
+  );
   const top = ranked[0];
   const reason = top
     ? describeChoice(top, c)
@@ -115,9 +169,11 @@ export function routeModels(candidates: RoutingCandidate[], c: RoutingConstraint
 function describeChoice(cand: RoutingCandidate, c: RoutingConstraints): string {
   const m = cand.model;
   const bits = [`${c.mode} mode`, `cleared for ${c.informationPrivacyClass}`];
-  if (m.evaluationStatus !== "APPROVED") bits.push(`${m.evaluationStatus.toLowerCase()} (workspace allows experimental)`);
+  if (m.evaluationStatus !== "APPROVED")
+    bits.push(`${m.evaluationStatus.toLowerCase()} (workspace allows experimental)`);
   if (c.preferEconomy) bits.push("economy preferred for a short question");
-  if (m.capabilities.includes("reasoning") && (c.mode === "AUTO" || c.mode === "FRONTIER")) bits.push("reasoning capability");
+  if (m.capabilities.includes("reasoning") && (c.mode === "AUTO" || c.mode === "FRONTIER"))
+    bits.push("reasoning capability");
   return `${m.displayName}: ${bits.join(", ")}.`;
 }
 
@@ -126,10 +182,20 @@ function describeChoice(cand: RoutingCandidate, c: RoutingConstraints): string {
  * economy model is appropriate, or does it warrant retrieval / a stronger
  * model? Deliberately simple; the classifier model run is a roadmap item.
  */
-export function classifyQuestion(text: string): { preferEconomy: boolean; wantsResearch: boolean; estimatedTokens: number } {
+export function classifyQuestion(text: string): {
+  preferEconomy: boolean;
+  wantsResearch: boolean;
+  estimatedTokens: number;
+} {
   const trimmed = text.trim();
   const words = trimmed.split(/\s+/).length;
-  const wantsResearch = /\b(research|compare|evidence|sources?|cite|latest|study|studies|according to|verify)\b/i.test(trimmed);
-  const preferEconomy = words < 12 && !wantsResearch && !/\b(why|explain|analy[sz]e|design|plan|write)\b/i.test(trimmed);
+  const wantsResearch =
+    /\b(research|compare|evidence|sources?|cite|latest|study|studies|according to|verify)\b/i.test(
+      trimmed,
+    );
+  const preferEconomy =
+    words < 12 &&
+    !wantsResearch &&
+    !/\b(why|explain|analy[sz]e|design|plan|write)\b/i.test(trimmed);
   return { preferEconomy, wantsResearch, estimatedTokens: Math.ceil(trimmed.length / 4) };
 }

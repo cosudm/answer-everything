@@ -16,7 +16,16 @@
           "displayName": "Claude Fable 5.1",
           "deploymentType": "COMMERCIAL_API",
           "behavioralProfile": "PROFESSIONAL",
-          "capabilities": ["chat", "streaming", "tools", "json", "vision", "long_context", "reasoning", "code"],
+          "capabilities": [
+            "chat",
+            "streaming",
+            "tools",
+            "json",
+            "vision",
+            "long_context",
+            "reasoning",
+            "code"
+          ],
           "privacyClassesAllowed": ["PUBLIC", "INTERNAL", "CONFIDENTIAL"],
           "evaluationStatus": "APPROVED",
           "contextWindow": 1000000,
@@ -24,16 +33,33 @@
           "inputCostPerMillion": 10,
           "outputCostPerMillion": 50,
           "license": "Commercial API terms",
-          "intendedUses": ["general reasoning", "long-context analysis", "research synthesis", "coding"],
+          "intendedUses": [
+            "general reasoning",
+            "long-context analysis",
+            "research synthesis",
+            "coding"
+          ],
           "prohibitedUses": ["RESTRICTED-class data"],
-          "metadata": { "routingPriority": 40, "approvalBasis": "seed: commercially supported frontier model; re-evaluate with harness before production" }
+          "metadata": {
+            "routingPriority": 40,
+            "approvalBasis": "seed: commercially supported frontier model; re-evaluate with harness before production"
+          }
         },
         {
           "providerModelName": "claude-opus-5-5",
           "displayName": "Claude Opus 5.5",
           "deploymentType": "COMMERCIAL_API",
           "behavioralProfile": "STANDARD",
-          "capabilities": ["chat", "streaming", "tools", "json", "vision", "long_context", "reasoning", "code"],
+          "capabilities": [
+            "chat",
+            "streaming",
+            "tools",
+            "json",
+            "vision",
+            "long_context",
+            "reasoning",
+            "code"
+          ],
           "privacyClassesAllowed": ["PUBLIC", "INTERNAL", "CONFIDENTIAL"],
           "evaluationStatus": "APPROVED",
           "contextWindow": 200000,
@@ -43,7 +69,10 @@
           "license": "Commercial API terms",
           "intendedUses": ["general reasoning", "coding"],
           "prohibitedUses": ["RESTRICTED-class data"],
-          "metadata": { "routingPriority": 30, "approvalBasis": "seed: commercially supported frontier model; re-evaluate with harness before production" }
+          "metadata": {
+            "routingPriority": 30,
+            "approvalBasis": "seed: commercially supported frontier model; re-evaluate with harness before production"
+          }
         },
         {
           "providerModelName": "claude-sonnet-5-5",
@@ -60,7 +89,10 @@
           "license": "Commercial API terms",
           "intendedUses": ["everyday questions", "drafting", "summarization"],
           "prohibitedUses": ["RESTRICTED-class data"],
-          "metadata": { "routingPriority": 20, "approvalBasis": "seed: commercially supported model; re-evaluate with harness before production" }
+          "metadata": {
+            "routingPriority": 20,
+            "approvalBasis": "seed: commercially supported model; re-evaluate with harness before production"
+          }
         },
         {
           "providerModelName": "claude-haiku-5-5",
@@ -77,7 +109,11 @@
           "license": "Commercial API terms",
           "intendedUses": ["short questions", "classification", "routing"],
           "prohibitedUses": ["RESTRICTED-class data"],
-          "metadata": { "routingPriority": 10, "economy": true, "approvalBasis": "seed: commercially supported model; re-evaluate with harness before production" }
+          "metadata": {
+            "routingPriority": 10,
+            "economy": true,
+            "approvalBasis": "seed: commercially supported model; re-evaluate with harness before production"
+          }
         }
       ]
     },
@@ -106,7 +142,9 @@
           "license": "Commercial API terms",
           "intendedUses": ["knowledge embeddings"],
           "prohibitedUses": ["RESTRICTED-class data"],
-          "metadata": { "approvalBasis": "seed: embedding model; dimension fixed at 1536 (ADR-0007)" }
+          "metadata": {
+            "approvalBasis": "seed: embedding model; dimension fixed at 1536 (ADR-0007)"
+          }
         }
       ],
       "$comment": "Add OpenAI chat models from the current model list; names are not seeded to avoid registering stale identifiers."

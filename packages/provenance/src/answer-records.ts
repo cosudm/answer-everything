@@ -51,7 +51,10 @@ export interface NewAnswerRecord {
   claims: NewClaim[];
 }
 
-export async function insertAnswerRecord(q: Queryable, input: NewAnswerRecord): Promise<AnswerRecord> {
+export async function insertAnswerRecord(
+  q: Queryable,
+  input: NewAnswerRecord,
+): Promise<AnswerRecord> {
   const rec = await q.query(
     `INSERT INTO answer_records
        (workspace_id, conversation_id, message_id, acting_identity_id, model_run_ids, context_manifest_id,
@@ -123,7 +126,9 @@ export async function insertAnswerRecord(q: Queryable, input: NewAnswerRecord): 
   const claims: AnswerClaim[] = [];
   let ordinal = 0;
   for (const cl of input.claims) {
-    const citationIds = cl.citationLabels.map((l) => labelToId.get(l)).filter((x): x is string => Boolean(x));
+    const citationIds = cl.citationLabels
+      .map((l) => labelToId.get(l))
+      .filter((x): x is string => Boolean(x));
     const r = await q.query(
       `INSERT INTO answer_claims
          (answer_record_id, workspace_id, text, claim_type, citation_ids, span_start, span_end, confidence, ordinal)

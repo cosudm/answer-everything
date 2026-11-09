@@ -41,7 +41,10 @@ export function principalOf(req: FastifyRequest): Principal {
 }
 
 export function clientMeta(req: FastifyRequest) {
-  return { ipAddress: req.ip ?? null, userAgent: (req.headers["user-agent"] as string | undefined) ?? null };
+  return {
+    ipAddress: req.ip ?? null,
+    userAgent: (req.headers["user-agent"] as string | undefined) ?? null,
+  };
 }
 
 export function setSessionCookies(

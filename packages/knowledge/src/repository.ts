@@ -1,7 +1,14 @@
 import { createHash } from "node:crypto";
 import type { Queryable } from "@ae/database";
 import { iso, isoRequired, toVectorLiteral } from "@ae/database";
-import type { KnowledgeChunk, KnowledgeKind, KnowledgeObject, KnowledgeStatus, PrivacyClass, SearchHit } from "@ae/domain";
+import type {
+  KnowledgeChunk,
+  KnowledgeKind,
+  KnowledgeObject,
+  KnowledgeStatus,
+  PrivacyClass,
+  SearchHit,
+} from "@ae/domain";
 
 export function toKnowledgeObject(r: Record<string, unknown>): KnowledgeObject {
   return {
@@ -45,7 +52,10 @@ export interface NewKnowledgeObject {
   metadata?: Record<string, unknown>;
 }
 
-export async function insertKnowledgeObject(q: Queryable, input: NewKnowledgeObject): Promise<KnowledgeObject> {
+export async function insertKnowledgeObject(
+  q: Queryable,
+  input: NewKnowledgeObject,
+): Promise<KnowledgeObject> {
   const bytes = Buffer.byteLength(input.textContent, "utf8");
   const hash = createHash("sha256").update(input.textContent).digest("hex");
   const res = await q.query(
@@ -73,13 +83,22 @@ export async function insertKnowledgeObject(q: Queryable, input: NewKnowledgeObj
   return toKnowledgeObject(res.rows[0]);
 }
 
-export async function getKnowledgeObject(q: Queryable, id: string): Promise<KnowledgeObject | null> {
-  const res = await q.query("SELECT * FROM knowledge_objects WHERE id = $1 AND deleted_at IS NULL", [id]);
+export async function getKnowledgeObject(
+  q: Queryable,
+  id: string,
+): Promise<KnowledgeObject | null> {
+  const res = await q.query(
+    "SELECT * FROM knowledge_objects WHERE id = $1 AND deleted_at IS NULL",
+    [id],
+  );
   return res.rows[0] ? toKnowledgeObject(res.rows[0]) : null;
 }
 
 export async function getKnowledgeText(q: Queryable, id: string): Promise<string | null> {
-  const res = await q.query("SELECT text_content FROM knowledge_objects WHERE id = $1 AND deleted_at IS NULL", [id]);
+  const res = await q.query(
+    "SELECT text_content FROM knowledge_objects WHERE id = $1 AND deleted_at IS NULL",
+    [id],
+  );
   return res.rows[0]?.text_content ?? null;
 }
 
@@ -91,7 +110,10 @@ export interface ListKnowledgeOptions {
   limit?: number;
 }
 
-export async function listKnowledgeObjects(q: Queryable, opts: ListKnowledgeOptions): Promise<KnowledgeObject[]> {
+export async function listKnowledgeObjects(
+  q: Queryable,
+  opts: ListKnowledgeOptions,
+): Promise<KnowledgeObject[]> {
   const res = await q.query(
     `SELECT * FROM knowledge_objects
      WHERE workspace_id = $1 AND deleted_at IS NULL
@@ -99,7 +121,13 @@ export async function listKnowledgeObjects(q: Queryable, opts: ListKnowledgeOpti
        AND ($3::text IS NULL OR kind = $3)
        AND ($4::text IS NULL OR title ILIKE '%' || $4 || '%' OR $4 = ANY(tags))
      ORDER BY created_at DESC LIMIT $5`,
-    [opts.workspaceId, opts.projectId ?? null, opts.kind ?? null, opts.search ?? null, Math.min(opts.limit ?? 50, 200)],
+    [
+      opts.workspaceId,
+      opts.projectId ?? null,
+      opts.kind ?? null,
+      opts.search ?? null,
+      Math.min(opts.limit ?? 50, 200),
+    ],
   );
   return res.rows.map(toKnowledgeObject);
 }
@@ -120,7 +148,13 @@ export async function updateKnowledgeStatus(
 export async function updateKnowledgeObject(
   q: Queryable,
   id: string,
-  patch: { title?: string; privacyClass?: PrivacyClass; aiUsePermission?: "ALLOW" | "DENY"; tags?: string[]; projectId?: string | null },
+  patch: {
+    title?: string;
+    privacyClass?: PrivacyClass;
+    aiUsePermission?: "ALLOW" | "DENY";
+    tags?: string[];
+    projectId?: string | null;
+  },
 ): Promise<KnowledgeObject | null> {
   const res = await q.query(
     `UPDATE knowledge_objects SET
@@ -130,13 +164,24 @@ export async function updateKnowledgeObject(
        tags = COALESCE($5, tags),
        project_id = CASE WHEN $6::boolean THEN $7::uuid ELSE project_id END
      WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
-    [id, patch.title ?? null, patch.privacyClass ?? null, patch.aiUsePermission ?? null, patch.tags ?? null, patch.projectId !== undefined, patch.projectId ?? null],
+    [
+      id,
+      patch.title ?? null,
+      patch.privacyClass ?? null,
+      patch.aiUsePermission ?? null,
+      patch.tags ?? null,
+      patch.projectId !== undefined,
+      patch.projectId ?? null,
+    ],
   );
   return res.rows[0] ? toKnowledgeObject(res.rows[0]) : null;
 }
 
 export async function softDeleteKnowledgeObject(q: Queryable, id: string): Promise<boolean> {
-  const res = await q.query(`UPDATE knowledge_objects SET deleted_at = now(), status = 'ARCHIVED' WHERE id = $1 AND deleted_at IS NULL`, [id]);
+  const res = await q.query(
+    `UPDATE knowledge_objects SET deleted_at = now(), status = 'ARCHIVED' WHERE id = $1 AND deleted_at IS NULL`,
+    [id],
+  );
   await q.query(`DELETE FROM knowledge_chunks WHERE knowledge_object_id = $1`, [id]);
   return (res.rowCount ?? 0) > 0;
 }
@@ -188,7 +233,10 @@ export async function replaceChunks(
   return out;
 }
 
-export async function getChunk(q: Queryable, chunkId: string): Promise<(KnowledgeChunk & { title: string; privacyClass: PrivacyClass }) | null> {
+export async function getChunk(
+  q: Queryable,
+  chunkId: string,
+): Promise<(KnowledgeChunk & { title: string; privacyClass: PrivacyClass }) | null> {
   const res = await q.query(
     `SELECT c.*, o.title, o.privacy_class FROM knowledge_chunks c JOIN knowledge_objects o ON o.id = c.knowledge_object_id WHERE c.id = $1`,
     [chunkId],
@@ -224,7 +272,12 @@ export interface HybridSearchInput {
 }
 
 const PRIVACY_CASE = `CASE o.privacy_class WHEN 'PUBLIC' THEN 0 WHEN 'INTERNAL' THEN 1 WHEN 'CONFIDENTIAL' THEN 2 ELSE 3 END`;
-const PRIVACY_RANK_SQL: Record<PrivacyClass, number> = { PUBLIC: 0, INTERNAL: 1, CONFIDENTIAL: 2, RESTRICTED: 3 };
+const PRIVACY_RANK_SQL: Record<PrivacyClass, number> = {
+  PUBLIC: 0,
+  INTERNAL: 1,
+  CONFIDENTIAL: 2,
+  RESTRICTED: 3,
+};
 
 /**
  * Hybrid retrieval with reciprocal rank fusion. Authorization constraints

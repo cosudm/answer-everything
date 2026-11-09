@@ -23,7 +23,10 @@ export interface AppContext {
   close(): Promise<void>;
 }
 
-export async function createAppContext(config: ApiConfig, overrides: Partial<Pick<AppContext, "db" | "logger">> = {}): Promise<AppContext> {
+export async function createAppContext(
+  config: ApiConfig,
+  overrides: Partial<Pick<AppContext, "db" | "logger">> = {},
+): Promise<AppContext> {
   const logger = overrides.logger ?? createLogger({ name: "ae-api", level: config.LOG_LEVEL });
   const db = overrides.db ?? createDatabase({ ...databaseConfigFromEnv(), max: 12 });
 
@@ -43,7 +46,11 @@ export async function createAppContext(config: ApiConfig, overrides: Partial<Pic
   // model_versions/providers are platform-global tables (no RLS).
   const resolver = {
     resolve: async (id: string) => {
-      const r = await withTenant(db.app, { userId: null, workspaceId: null, identityId: PLATFORM_SERVICE_IDENTITY_ID }, (tx) => getModel(tx, id));
+      const r = await withTenant(
+        db.app,
+        { userId: null, workspaceId: null, identityId: PLATFORM_SERVICE_IDENTITY_ID },
+        (tx) => getModel(tx, id),
+      );
       return r ? { model: r.model, provider: r.provider } : null;
     },
   };
@@ -61,12 +68,29 @@ export async function createAppContext(config: ApiConfig, overrides: Partial<Pic
   const [slug, name] = config.AE_EMBEDDING_MODEL.split("/");
   let embeddingModelVersionId: string | null = null;
   if (slug && name) {
-    const found = await withTenant(db.app, { userId: null, workspaceId: null, identityId: PLATFORM_SERVICE_IDENTITY_ID }, (tx) => findModelByName(tx, slug, name, null));
-    if (found && found.model.enabled && found.provider.enabled) embeddingModelVersionId = found.model.id;
-    else logger.warn({ embeddingModel: config.AE_EMBEDDING_MODEL }, "embedding model not available; retrieval will be lexical only");
+    const found = await withTenant(
+      db.app,
+      { userId: null, workspaceId: null, identityId: PLATFORM_SERVICE_IDENTITY_ID },
+      (tx) => findModelByName(tx, slug, name, null),
+    );
+    if (found && found.model.enabled && found.provider.enabled)
+      embeddingModelVersionId = found.model.id;
+    else
+      logger.warn(
+        { embeddingModel: config.AE_EMBEDDING_MODEL },
+        "embedding model not available; retrieval will be lexical only",
+      );
   }
 
-  const jobRunner = new JobRunner({ db, queue, gateway, logger, embeddingModelVersionId, events, workerId: "api-inline" });
+  const jobRunner = new JobRunner({
+    db,
+    queue,
+    gateway,
+    logger,
+    embeddingModelVersionId,
+    events,
+    workerId: "api-inline",
+  });
 
   return {
     config,
@@ -91,10 +115,16 @@ export async function createAppContext(config: ApiConfig, overrides: Partial<Pic
 class WorkspaceOwnerBudgetGuard {
   constructor(private readonly db: Database) {}
   async check(workspaceId: string, estimatedCostUsd: number | null) {
-    const owner = await this.db.identity.query("SELECT owner_user_id FROM workspaces WHERE id = $1 AND deleted_at IS NULL", [workspaceId]);
+    const owner = await this.db.identity.query(
+      "SELECT owner_user_id FROM workspaces WHERE id = $1 AND deleted_at IS NULL",
+      [workspaceId],
+    );
     const ownerId: string | undefined = owner.rows[0]?.owner_user_id;
     if (!ownerId) return { allowed: false, remainingUsd: null, reason: "workspace not found" };
-    const guard = new LedgerBudgetGuard(this.db.app, () => ({ userId: ownerId, identityId: PLATFORM_SERVICE_IDENTITY_ID }));
+    const guard = new LedgerBudgetGuard(this.db.app, () => ({
+      userId: ownerId,
+      identityId: PLATFORM_SERVICE_IDENTITY_ID,
+    }));
     return guard.check(workspaceId, estimatedCostUsd);
   }
 }

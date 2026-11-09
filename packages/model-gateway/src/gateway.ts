@@ -14,7 +14,14 @@ import type {
 import { metrics, type Logger } from "@ae/observability";
 import { AnthropicAdapter } from "./adapters/anthropic.js";
 import { OpenAiCompatibleAdapter } from "./adapters/openai-compatible.js";
-import type { AdapterContext, BudgetGuard, CredentialBroker, ModelGateway, ModelResolver, ProviderAdapter } from "./types.js";
+import type {
+  AdapterContext,
+  BudgetGuard,
+  CredentialBroker,
+  ModelGateway,
+  ModelResolver,
+  ProviderAdapter,
+} from "./types.js";
 import { GatewayError } from "./types.js";
 import { estimateCostUsd, estimateTokens, looksLikeTextRefusal } from "./util.js";
 
@@ -44,33 +51,64 @@ export class DefaultModelGateway implements ModelGateway {
 
   constructor(private readonly opts: GatewayOptions) {}
 
-  private async context(modelVersionId: string, privacyClass: string | null): Promise<AdapterContext> {
+  private async context(
+    modelVersionId: string,
+    privacyClass: string | null,
+  ): Promise<AdapterContext> {
     const resolved = await this.opts.resolver.resolve(modelVersionId);
-    if (!resolved) throw new GatewayError("MODEL_NOT_FOUND", `model ${modelVersionId} is not registered`);
+    if (!resolved)
+      throw new GatewayError("MODEL_NOT_FOUND", `model ${modelVersionId} is not registered`);
     const { model, provider } = resolved;
-    if (!model.enabled) throw new GatewayError("MODEL_DISABLED", `${model.displayName} is disabled`);
-    if (!provider.enabled) throw new GatewayError("PROVIDER_DISABLED", `${provider.displayName} is disabled`);
+    if (!model.enabled)
+      throw new GatewayError("MODEL_DISABLED", `${model.displayName} is disabled`);
+    if (!provider.enabled)
+      throw new GatewayError("PROVIDER_DISABLED", `${provider.displayName} is disabled`);
     if (model.deploymentType === "LOCAL" && this.opts.allowLocalDeployments === false) {
-      throw new GatewayError("MODEL_DISABLED", "LOCAL deployments are not permitted in this environment");
+      throw new GatewayError(
+        "MODEL_DISABLED",
+        "LOCAL deployments are not permitted in this environment",
+      );
     }
     if (privacyClass && !model.privacyClassesAllowed.includes(privacyClass as never)) {
-      throw new GatewayError("PRIVACY_CLASS_NOT_ALLOWED", `${model.displayName} is not cleared for ${privacyClass} information`);
+      throw new GatewayError(
+        "PRIVACY_CLASS_NOT_ALLOWED",
+        `${model.displayName} is not cleared for ${privacyClass} information`,
+      );
     }
-    if (!provider.baseUrl) throw new GatewayError("PROVIDER_UNCONFIGURED", `${provider.displayName} has no endpoint configured`);
+    if (!provider.baseUrl)
+      throw new GatewayError(
+        "PROVIDER_UNCONFIGURED",
+        `${provider.displayName} has no endpoint configured`,
+      );
     const apiKey = await this.opts.credentials.resolve(provider.credentialRef);
     if (provider.credentialRef && !apiKey) {
-      throw new GatewayError("PROVIDER_UNCONFIGURED", `${provider.displayName} credential ${provider.credentialRef} is not configured`);
+      throw new GatewayError(
+        "PROVIDER_UNCONFIGURED",
+        `${provider.displayName} credential ${provider.credentialRef} is not configured`,
+      );
     }
-    return { provider, model, apiKey, baseUrl: provider.baseUrl, fetchImpl: this.opts.fetchImpl, timeoutMs: this.opts.timeoutMs };
+    return {
+      provider,
+      model,
+      apiKey,
+      baseUrl: provider.baseUrl,
+      fetchImpl: this.opts.fetchImpl,
+      timeoutMs: this.opts.timeoutMs,
+    };
   }
 
   async *stream(request: GenerationRequest, signal?: AbortSignal): AsyncIterable<ModelEvent> {
     const ctx = await this.context(request.modelVersionId, request.informationPrivacyClass);
     if (!ctx.model.capabilities.includes("chat")) {
-      throw new GatewayError("CAPABILITY_UNAVAILABLE", `${ctx.model.displayName} is not a chat model`);
+      throw new GatewayError(
+        "CAPABILITY_UNAVAILABLE",
+        `${ctx.model.displayName} is not a chat model`,
+      );
     }
     if (this.opts.budget) {
-      const inputEstimate = estimateTokens(request.messages.map((m) => m.content).join("\n") + (request.system ?? ""));
+      const inputEstimate = estimateTokens(
+        request.messages.map((m) => m.content).join("\n") + (request.system ?? ""),
+      );
       const est = estimateCostUsd(ctx.model, {
         inputTokens: inputEstimate,
         outputTokens: request.maxOutputTokens ?? 1024,
@@ -79,7 +117,8 @@ export class DefaultModelGateway implements ModelGateway {
         reported: false,
       });
       const b = await this.opts.budget.check(request.workspaceId, est);
-      if (!b.allowed) throw new GatewayError("BUDGET_EXCEEDED", b.reason ?? "workspace budget exceeded");
+      if (!b.allowed)
+        throw new GatewayError("BUDGET_EXCEEDED", b.reason ?? "workspace budget exceeded");
     }
     const adapter = this.adapters[ctx.provider.adapter];
     const started = Date.now();
@@ -87,7 +126,10 @@ export class DefaultModelGateway implements ModelGateway {
     let outputChars = 0;
     let sawUsage = false;
     let finish = "stop";
-    this.opts.logger.debug({ model: ctx.model.providerModelName, provider: ctx.provider.slug }, "model stream start");
+    this.opts.logger.debug(
+      { model: ctx.model.providerModelName, provider: ctx.provider.slug },
+      "model stream start",
+    );
 
     for await (const ev of adapter.stream(request, ctx, signal)) {
       if (ev.type === "delta") {
@@ -99,7 +141,8 @@ export class DefaultModelGateway implements ModelGateway {
         finish = ev.finishReason;
         if (!sawUsage) {
           // Provider reported nothing: estimate and flag it.
-          const inputText = request.messages.map((m) => m.content).join("\n") + (request.system ?? "");
+          const inputText =
+            request.messages.map((m) => m.content).join("\n") + (request.system ?? "");
           yield {
             type: "usage",
             usage: {
@@ -117,7 +160,10 @@ export class DefaultModelGateway implements ModelGateway {
     const latency = Date.now() - started;
     metrics.modelLatency.observe({ model: ctx.model.providerModelName }, latency);
     metrics.modelRuns.inc({ model: ctx.model.providerModelName, finish });
-    this.opts.logger.info({ model: ctx.model.providerModelName, latencyMs: latency, ttftMs: firstToken, finish }, "model stream end");
+    this.opts.logger.info(
+      { model: ctx.model.providerModelName, latencyMs: latency, ttftMs: firstToken, finish },
+      "model stream end",
+    );
   }
 
   async generate(request: GenerationRequest): Promise<GenerationResponse> {
@@ -165,11 +211,22 @@ export class DefaultModelGateway implements ModelGateway {
       }
     }
     if (!refusal && finishReason === "stop" && looksLikeTextRefusal(text)) {
-      refusal = { code: null, message: text.slice(0, 400), source: "response_text", rawCategory: null };
+      refusal = {
+        code: null,
+        message: text.slice(0, 400),
+        source: "response_text",
+        rawCategory: null,
+      };
       finishReason = "refusal";
     }
     const resolved = await this.opts.resolver.resolve(request.modelVersionId);
-    const finalUsage = usage ?? { inputTokens: 0, outputTokens: 0, reasoningTokens: null, cachedInputTokens: null, reported: false };
+    const finalUsage = usage ?? {
+      inputTokens: 0,
+      outputTokens: 0,
+      reasoningTokens: null,
+      cachedInputTokens: null,
+      reported: false,
+    };
     return {
       modelVersionId: request.modelVersionId,
       text,
@@ -190,7 +247,10 @@ export class DefaultModelGateway implements ModelGateway {
   async embed(request: EmbeddingRequest): Promise<EmbeddingResponse> {
     const ctx = await this.context(request.modelVersionId, request.informationPrivacyClass);
     if (!ctx.model.capabilities.includes("embeddings")) {
-      throw new GatewayError("CAPABILITY_UNAVAILABLE", `${ctx.model.displayName} is not an embedding model`);
+      throw new GatewayError(
+        "CAPABILITY_UNAVAILABLE",
+        `${ctx.model.displayName} is not an embedding model`,
+      );
     }
     const adapter = this.adapters[ctx.provider.adapter];
     const result = await adapter.embed(request, ctx);
@@ -208,7 +268,10 @@ export class DefaultModelGateway implements ModelGateway {
       cachedInputTokens: null,
       reported: result.inputTokens != null,
     };
-    metrics.modelTokens.inc({ model: ctx.model.providerModelName, direction: "input" }, usage.inputTokens);
+    metrics.modelTokens.inc(
+      { model: ctx.model.providerModelName, direction: "input" },
+      usage.inputTokens,
+    );
     return {
       modelVersionId: request.modelVersionId,
       vectors: result.vectors,
@@ -219,7 +282,9 @@ export class DefaultModelGateway implements ModelGateway {
     };
   }
 
-  async isConfigured(modelVersionId: string): Promise<{ configured: boolean; reason: string | null }> {
+  async isConfigured(
+    modelVersionId: string,
+  ): Promise<{ configured: boolean; reason: string | null }> {
     try {
       await this.context(modelVersionId, null);
       return { configured: true, reason: null };

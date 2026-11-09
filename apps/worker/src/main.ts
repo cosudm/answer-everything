@@ -32,9 +32,14 @@ async function main() {
   });
 
   const [slug, name] = (process.env.AE_EMBEDDING_MODEL ?? "local-dev/dev-embed-1536").split("/");
-  const embedding = slug && name ? await withTenant(db.app, platformCtx, (tx) => findModelByName(tx, slug, name, null)) : null;
-  const embeddingModelVersionId = embedding && embedding.model.enabled && embedding.provider.enabled ? embedding.model.id : null;
-  if (!embeddingModelVersionId) logger.warn("no embedding model available; ingestion will index lexically only");
+  const embedding =
+    slug && name
+      ? await withTenant(db.app, platformCtx, (tx) => findModelByName(tx, slug, name, null))
+      : null;
+  const embeddingModelVersionId =
+    embedding && embedding.model.enabled && embedding.provider.enabled ? embedding.model.id : null;
+  if (!embeddingModelVersionId)
+    logger.warn("no embedding model available; ingestion will index lexically only");
 
   const runner = new JobRunner({
     db,
@@ -57,7 +62,10 @@ async function main() {
   process.on("SIGINT", () => void stop());
   process.on("SIGTERM", () => void stop());
 
-  logger.info({ embeddingModel: embeddingModelVersionId ?? "none" }, "Answer Everything worker ready");
+  logger.info(
+    { embeddingModel: embeddingModelVersionId ?? "none" },
+    "Answer Everything worker ready",
+  );
   await runner.runForever(Number(process.env.AE_WORKER_POLL_MS ?? 1000));
 }
 

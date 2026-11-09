@@ -20,7 +20,7 @@ async function collect(chunks: string[]) {
 
 describe("parseSse", () => {
   it("parses events split across chunk boundaries", async () => {
-    const msgs = await collect(["event: message_start\ndata: {\"a\":", "1}\n\nda", "ta: second\n\n"]);
+    const msgs = await collect(['event: message_start\ndata: {"a":', "1}\n\nda", "ta: second\n\n"]);
     expect(msgs).toEqual([
       { event: "message_start", data: '{"a":1}', id: null },
       { event: null, data: "second", id: null },
@@ -54,27 +54,56 @@ describe("parseSse", () => {
 describe("classifyHttpError", () => {
   it("maps statuses to kinds and retryability", () => {
     expect(classifyHttpError(401, "", null).kind).toBe("AUTHENTICATION");
-    expect(classifyHttpError(429, '{"error":{"message":"Rate limit"}}', "r1")).toMatchObject({ kind: "RATE_LIMITED", retryable: true, providerRequestId: "r1" });
+    expect(classifyHttpError(429, '{"error":{"message":"Rate limit"}}', "r1")).toMatchObject({
+      kind: "RATE_LIMITED",
+      retryable: true,
+      providerRequestId: "r1",
+    });
     expect(classifyHttpError(429, "insufficient_quota", null).kind).toBe("QUOTA_EXCEEDED");
-    expect(classifyHttpError(400, "maximum context length exceeded", null).kind).toBe("CONTEXT_TOO_LONG");
-    expect(classifyHttpError(503, "", null)).toMatchObject({ kind: "PROVIDER_UNAVAILABLE", retryable: true });
+    expect(classifyHttpError(400, "maximum context length exceeded", null).kind).toBe(
+      "CONTEXT_TOO_LONG",
+    );
+    expect(classifyHttpError(503, "", null)).toMatchObject({
+      kind: "PROVIDER_UNAVAILABLE",
+      retryable: true,
+    });
   });
 });
 
 describe("estimateCostUsd", () => {
   const model = { inputCostPerMillion: 10, outputCostPerMillion: 50 } as never;
   it("computes from per-million prices", () => {
-    expect(estimateCostUsd(model, { inputTokens: 1_000_000, outputTokens: 100_000, reasoningTokens: null, cachedInputTokens: null, reported: true })).toBe(15);
+    expect(
+      estimateCostUsd(model, {
+        inputTokens: 1_000_000,
+        outputTokens: 100_000,
+        reasoningTokens: null,
+        cachedInputTokens: null,
+        reported: true,
+      }),
+    ).toBe(15);
   });
   it("is null when pricing is unknown", () => {
-    expect(estimateCostUsd({ inputCostPerMillion: null, outputCostPerMillion: 1 } as never, { inputTokens: 1, outputTokens: 1, reasoningTokens: null, cachedInputTokens: null, reported: true })).toBeNull();
+    expect(
+      estimateCostUsd({ inputCostPerMillion: null, outputCostPerMillion: 1 } as never, {
+        inputTokens: 1,
+        outputTokens: 1,
+        reasoningTokens: null,
+        cachedInputTokens: null,
+        reported: true,
+      }),
+    ).toBeNull();
   });
 });
 
 describe("looksLikeTextRefusal", () => {
   it("fires only on short refusal templates", () => {
     expect(looksLikeTextRefusal("I'm sorry, but I can't help with that request.")).toBe(true);
-    expect(looksLikeTextRefusal("I can't say for certain, but the evidence suggests three things. " + "x".repeat(400))).toBe(false);
+    expect(
+      looksLikeTextRefusal(
+        "I can't say for certain, but the evidence suggests three things. " + "x".repeat(400),
+      ),
+    ).toBe(false);
     expect(looksLikeTextRefusal("Paris is the capital of France.")).toBe(false);
   });
 });

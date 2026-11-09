@@ -8,7 +8,10 @@ export interface SseMessage {
  * Parses a text/event-stream body into messages. Handles multi-line data,
  * comments, CRLF, and chunk boundaries that split a line or a UTF-8 sequence.
  */
-export async function* parseSse(body: ReadableStream<Uint8Array>, signal?: AbortSignal): AsyncGenerator<SseMessage> {
+export async function* parseSse(
+  body: ReadableStream<Uint8Array>,
+  signal?: AbortSignal,
+): AsyncGenerator<SseMessage> {
   const reader = body.getReader();
   const decoder = new TextDecoder("utf-8");
   let buffer = "";

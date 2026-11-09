@@ -1,6 +1,13 @@
 import type { Queryable } from "@ae/database";
 import { iso, isoRequired, withTenant } from "@ae/database";
-import type { ModelRun, ModelRunPurpose, PrivacyClass, ProviderError, ProviderRefusal, TokenUsage } from "@ae/domain";
+import type {
+  ModelRun,
+  ModelRunPurpose,
+  PrivacyClass,
+  ProviderError,
+  ProviderRefusal,
+  TokenUsage,
+} from "@ae/domain";
 import type { BudgetGuard } from "@ae/model-gateway";
 import { metrics } from "@ae/observability";
 import type pg from "pg";
@@ -54,7 +61,16 @@ export async function startModelRun(
     `INSERT INTO model_runs
        (workspace_id, conversation_id, message_id, model_version_id, provider_id, acting_identity_id, purpose, status, request_snapshot)
      VALUES ($1,$2,$3,$4,$5,$6,$7,'RUNNING',$8) RETURNING *`,
-    [input.workspaceId, input.conversationId, input.messageId, input.modelVersionId, input.providerId, input.actingIdentityId, input.purpose, JSON.stringify(input.snapshot)],
+    [
+      input.workspaceId,
+      input.conversationId,
+      input.messageId,
+      input.modelVersionId,
+      input.providerId,
+      input.actingIdentityId,
+      input.purpose,
+      JSON.stringify(input.snapshot),
+    ],
   );
   return toModelRun(res.rows[0]);
 }
@@ -95,17 +111,36 @@ export async function finishModelRun(
   if (result.usage) {
     await q.query(
       `INSERT INTO usage_ledger (workspace_id, model_run_id, model_version_id, input_tokens, output_tokens, cost_usd) VALUES ($1,$2,$3,$4,$5,$6)`,
-      [run.workspaceId, run.id, run.modelVersionId, result.usage.inputTokens, result.usage.outputTokens, result.estimatedCostUsd ?? 0],
+      [
+        run.workspaceId,
+        run.id,
+        run.modelVersionId,
+        result.usage.inputTokens,
+        result.usage.outputTokens,
+        result.estimatedCostUsd ?? 0,
+      ],
     );
-    metrics.modelTokens.inc({ model: run.modelVersionId, direction: "input" }, result.usage.inputTokens);
-    metrics.modelTokens.inc({ model: run.modelVersionId, direction: "output" }, result.usage.outputTokens);
-    if (result.estimatedCostUsd) metrics.modelCostUsd.inc({ workspace: run.workspaceId }, result.estimatedCostUsd);
+    metrics.modelTokens.inc(
+      { model: run.modelVersionId, direction: "input" },
+      result.usage.inputTokens,
+    );
+    metrics.modelTokens.inc(
+      { model: run.modelVersionId, direction: "output" },
+      result.usage.outputTokens,
+    );
+    if (result.estimatedCostUsd)
+      metrics.modelCostUsd.inc({ workspace: run.workspaceId }, result.estimatedCostUsd);
   }
   return run;
 }
 
-export async function listModelRunsForMessage(q: Queryable, messageId: string): Promise<ModelRun[]> {
-  const res = await q.query("SELECT * FROM model_runs WHERE message_id = $1 ORDER BY started_at", [messageId]);
+export async function listModelRunsForMessage(
+  q: Queryable,
+  messageId: string,
+): Promise<ModelRun[]> {
+  const res = await q.query("SELECT * FROM model_runs WHERE message_id = $1 ORDER BY started_at", [
+    messageId,
+  ]);
   return res.rows.map(toModelRun);
 }
 
@@ -128,7 +163,14 @@ export async function workspaceSpend(q: Queryable, workspaceId: string): Promise
   const r = res.rows[0];
   const cost = Number(r.cost);
   const limit = Number(r.limit_usd);
-  return { monthToDateUsd: cost, limitUsd: limit, remainingUsd: Math.max(0, limit - cost), inputTokens: Number(r.inp), outputTokens: Number(r.outp), runs: Number(r.runs) };
+  return {
+    monthToDateUsd: cost,
+    limitUsd: limit,
+    remainingUsd: Math.max(0, limit - cost),
+    inputTokens: Number(r.inp),
+    outputTokens: Number(r.outp),
+    runs: Number(r.runs),
+  };
 }
 
 /**
@@ -142,7 +184,11 @@ export class LedgerBudgetGuard implements BudgetGuard {
   ) {}
   async check(workspaceId: string, estimatedCostUsd: number | null) {
     const ctx = this.ctxFor(workspaceId);
-    const spend = await withTenant(this.pool, { userId: ctx.userId, workspaceId, identityId: ctx.identityId }, (tx) => workspaceSpend(tx, workspaceId));
+    const spend = await withTenant(
+      this.pool,
+      { userId: ctx.userId, workspaceId, identityId: ctx.identityId },
+      (tx) => workspaceSpend(tx, workspaceId),
+    );
     const projected = spend.monthToDateUsd + (estimatedCostUsd ?? 0);
     if (spend.limitUsd > 0 && projected > spend.limitUsd && (estimatedCostUsd ?? 0) > 0) {
       return {

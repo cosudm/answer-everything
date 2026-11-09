@@ -16,9 +16,16 @@ export interface Harness {
   close(): Promise<void>;
   reset(): Promise<void>;
   /** Registers a user and returns the cookie header + workspace id. */
-  signUp(email: string, displayName?: string): Promise<{ cookie: string; userId: string; workspaceId: string; accessToken: string }>;
+  signUp(
+    email: string,
+    displayName?: string,
+  ): Promise<{ cookie: string; userId: string; workspaceId: string; accessToken: string }>;
   /** Collects SSE events from a streaming endpoint. */
-  stream(path: string, cookie: string, body: Record<string, unknown>): Promise<Array<Record<string, any>>>;
+  stream(
+    path: string,
+    cookie: string,
+    body: Record<string, unknown>,
+  ): Promise<Array<Record<string, any>>>;
 }
 
 /** Registry seed used by tests: the in-process dev stub plus a dead provider for fallback tests. */
@@ -118,7 +125,9 @@ export function testSeed(providerUrl: string) {
   };
 }
 
-export async function createHarness(opts: { allowExperimentalByDefault?: boolean; deadProvider?: boolean } = {}): Promise<Harness> {
+export async function createHarness(
+  opts: { allowExperimentalByDefault?: boolean; deadProvider?: boolean } = {},
+): Promise<Harness> {
   const provider = await createDevProviderServer({ tokenDelayMs: 0 });
   const config = loadConfig({
     ...process.env,
@@ -133,7 +142,8 @@ export async function createHarness(opts: { allowExperimentalByDefault?: boolean
   const db = openTestDatabase();
   await truncateAll(db);
   const seed = testSeed(provider.url);
-  if (opts.deadProvider === false) seed.providers = seed.providers.filter((p) => p.slug !== "dead-provider");
+  if (opts.deadProvider === false)
+    seed.providers = seed.providers.filter((p) => p.slug !== "dead-provider");
   await seedRegistry(db.migrator, seed, { env: process.env, aeEnv: "test" });
   const logger = createLogger({ name: "test", level: "silent", pretty: false });
   const ctx = await createAppContext(config, { db, logger });
@@ -164,10 +174,20 @@ export async function createHarness(opts: { allowExperimentalByDefault?: boolean
       if (res.statusCode !== 201) throw new Error(`register failed: ${res.statusCode} ${res.body}`);
       const body = res.json();
       const cookie = res.cookies.map((c) => `${c.name}=${c.value}`).join("; ");
-      return { cookie, userId: body.user.id, workspaceId: body.workspace.id, accessToken: body.accessToken };
+      return {
+        cookie,
+        userId: body.user.id,
+        workspaceId: body.workspace.id,
+        accessToken: body.accessToken,
+      };
     },
     async stream(path, cookie, body) {
-      const res = await app.inject({ method: "POST", url: path, headers: { cookie, "content-type": "application/json" }, payload: body });
+      const res = await app.inject({
+        method: "POST",
+        url: path,
+        headers: { cookie, "content-type": "application/json" },
+        payload: body,
+      });
       if (res.statusCode !== 200) throw new Error(`stream failed: ${res.statusCode} ${res.body}`);
       return res.body
         .split("\n")

@@ -26,9 +26,15 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
     bodyLimit: 1024 * 1024,
   });
 
-  await app.register(helmet, { contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } });
+  await app.register(helmet, {
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  });
   await app.register(cors, {
-    origin: [ctx.config.WEB_PUBLIC_URL, ...(ctx.config.isProd ? [] : ["http://localhost:3000", "http://127.0.0.1:3000"])],
+    origin: [
+      ctx.config.WEB_PUBLIC_URL,
+      ...(ctx.config.isProd ? [] : ["http://localhost:3000", "http://127.0.0.1:3000"]),
+    ],
     credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["content-type", "authorization", "x-request-id"],
@@ -39,21 +45,35 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
     max: ctx.config.AE_RATE_LIMIT_PER_MINUTE,
     timeWindow: "1 minute",
     keyGenerator: (req) => req.principal?.user.id ?? req.ip,
-    onExceeded: (req) => req.log.warn({ ip: req.ip, userId: req.principal?.user.id }, "rate limit exceeded"),
+    onExceeded: (req) =>
+      req.log.warn({ ip: req.ip, userId: req.principal?.user.id }, "rate limit exceeded"),
   });
   await app.register(authPlugin, { ctx });
   registerErrorHandler(app);
 
   app.addHook("onResponse", async (req, reply) => {
-    metrics.httpRequests.inc({ route: req.routeOptions.url ?? "unknown", method: req.method, status: String(reply.statusCode) });
+    metrics.httpRequests.inc({
+      route: req.routeOptions.url ?? "unknown",
+      method: req.method,
+      status: String(reply.statusCode),
+    });
   });
   app.addHook("onSend", async (_req, reply) => {
     reply.header("x-request-id", _req.id);
   });
 
   app.get("/health", async () => {
-    const db = await ctx.db.app.query("SELECT 1").then(() => "ok").catch((e: Error) => `error: ${e.message}`);
-    return { status: db === "ok" ? "ok" : "degraded", env: ctx.config.AE_ENV, db, embeddingModel: ctx.embeddingModelVersionId ? "configured" : "lexical-only", time: new Date().toISOString() };
+    const db = await ctx.db.app
+      .query("SELECT 1")
+      .then(() => "ok")
+      .catch((e: Error) => `error: ${e.message}`);
+    return {
+      status: db === "ok" ? "ok" : "degraded",
+      env: ctx.config.AE_ENV,
+      db,
+      embeddingModel: ctx.embeddingModelVersionId ? "configured" : "lexical-only",
+      time: new Date().toISOString(),
+    };
   });
   app.get("/metrics", async (_req, reply) => {
     reply.header("content-type", "text/plain; version=0.0.4");

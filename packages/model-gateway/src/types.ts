@@ -45,8 +45,15 @@ export interface AdapterContext {
  */
 export interface ProviderAdapter {
   readonly kind: "anthropic" | "openai-compatible";
-  stream(request: GenerationRequest, ctx: AdapterContext, signal?: AbortSignal): AsyncIterable<ModelEvent>;
-  embed(request: EmbeddingRequest, ctx: AdapterContext): Promise<{ vectors: number[][]; inputTokens: number | null; latencyMs: number }>;
+  stream(
+    request: GenerationRequest,
+    ctx: AdapterContext,
+    signal?: AbortSignal,
+  ): AsyncIterable<ModelEvent>;
+  embed(
+    request: EmbeddingRequest,
+    ctx: AdapterContext,
+  ): Promise<{ vectors: number[][]; inputTokens: number | null; latencyMs: number }>;
   health(ctx: AdapterContext): Promise<{ ok: boolean; latencyMs: number; detail: string | null }>;
 }
 
@@ -65,7 +72,10 @@ export interface ModelResolver {
 
 /** Budget guard consulted before each run. */
 export interface BudgetGuard {
-  check(workspaceId: string, estimatedCostUsd: number | null): Promise<{ allowed: boolean; remainingUsd: number | null; reason: string | null }>;
+  check(
+    workspaceId: string,
+    estimatedCostUsd: number | null,
+  ): Promise<{ allowed: boolean; remainingUsd: number | null; reason: string | null }>;
 }
 
 export class GatewayError extends Error {

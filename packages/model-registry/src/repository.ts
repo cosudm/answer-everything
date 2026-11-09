@@ -11,7 +11,11 @@ export function toProvider(r: Record<string, unknown>): Provider {
     displayName: r.display_name as string,
     baseUrl: (r.base_url as string | null) ?? null,
     credentialRef: (r.credential_ref as string | null) ?? null,
-    dataHandling: (r.data_handling as Provider["dataHandling"]) ?? { trainsOnData: false, retentionDays: null, region: null },
+    dataHandling: (r.data_handling as Provider["dataHandling"]) ?? {
+      trainsOnData: false,
+      retentionDays: null,
+      region: null,
+    },
     enabled: Boolean(r.enabled),
     metadata: (r.metadata as Record<string, unknown>) ?? {},
     createdAt: isoRequired(r.created_at as string),
@@ -30,14 +34,16 @@ export function toModelVersion(r: Record<string, unknown>): ModelVersion {
     deploymentType: r.deployment_type as ModelVersion["deploymentType"],
     behavioralProfile: r.behavioral_profile as ModelVersion["behavioralProfile"],
     capabilities: (r.capabilities as ModelVersion["capabilities"]) ?? [],
-    privacyClassesAllowed: (r.privacy_classes_allowed as ModelVersion["privacyClassesAllowed"]) ?? [],
+    privacyClassesAllowed:
+      (r.privacy_classes_allowed as ModelVersion["privacyClassesAllowed"]) ?? [],
     evaluationStatus: r.evaluation_status as EvaluationStatus,
     weightsHash: (r.weights_hash as string | null) ?? null,
     adapterIds: (r.adapter_ids as string[]) ?? [],
     contextWindow: Number(r.context_window),
     maxOutputTokens: r.max_output_tokens == null ? null : Number(r.max_output_tokens),
     inputCostPerMillion: r.input_cost_per_million == null ? null : Number(r.input_cost_per_million),
-    outputCostPerMillion: r.output_cost_per_million == null ? null : Number(r.output_cost_per_million),
+    outputCostPerMillion:
+      r.output_cost_per_million == null ? null : Number(r.output_cost_per_million),
     quantization: (r.quantization as string | null) ?? null,
     license: (r.license as string | null) ?? null,
     intendedUses: (r.intended_uses as string[]) ?? [],
@@ -93,7 +99,10 @@ export async function upsertProvider(
   return toProvider(res.rows[0]);
 }
 
-export async function listModels(q: Queryable, opts: { includeDisabled?: boolean } = {}): Promise<ModelWithProvider[]> {
+export async function listModels(
+  q: Queryable,
+  opts: { includeDisabled?: boolean } = {},
+): Promise<ModelWithProvider[]> {
   const res = await q.query(
     `SELECT row_to_json(m.*) AS model, row_to_json(p.*) AS provider
      FROM model_versions m JOIN providers p ON p.id = m.provider_id
@@ -101,7 +110,10 @@ export async function listModels(q: Queryable, opts: { includeDisabled?: boolean
      ORDER BY p.display_name, m.display_name`,
     [opts.includeDisabled ?? false],
   );
-  return res.rows.map((r) => ({ model: toModelVersion(r.model), provider: toProvider(r.provider) }));
+  return res.rows.map((r) => ({
+    model: toModelVersion(r.model),
+    provider: toProvider(r.provider),
+  }));
 }
 
 export async function getModel(q: Queryable, id: string): Promise<ModelWithProvider | null> {
@@ -135,7 +147,10 @@ export async function findModelByName(
  * identity-bearing fields (provider, name, version, base model, weights hash);
  * changing those means registering a new version.
  */
-export async function registerModel(q: Queryable, input: RegisterModelInput): Promise<ModelVersion> {
+export async function registerModel(
+  q: Queryable,
+  input: RegisterModelInput,
+): Promise<ModelVersion> {
   const res = await q.query(
     `INSERT INTO model_versions
        (provider_id, provider_model_name, display_name, base_model, version, deployment_type, behavioral_profile,
@@ -195,13 +210,16 @@ export async function setEvaluationStatus(
   reason: string | null,
   evaluationRunId: string | null = null,
 ): Promise<ModelVersion> {
-  const current = await q.query("SELECT evaluation_status FROM model_versions WHERE id = $1 FOR UPDATE", [modelVersionId]);
+  const current = await q.query(
+    "SELECT evaluation_status FROM model_versions WHERE id = $1 FOR UPDATE",
+    [modelVersionId],
+  );
   if (!current.rows[0]) throw new Error("model not found");
   const from: string = current.rows[0].evaluation_status;
-  const res = await q.query(`UPDATE model_versions SET evaluation_status = $2 WHERE id = $1 RETURNING *`, [
-    modelVersionId,
-    to,
-  ]);
+  const res = await q.query(
+    `UPDATE model_versions SET evaluation_status = $2 WHERE id = $1 RETURNING *`,
+    [modelVersionId, to],
+  );
   await q.query(
     `INSERT INTO model_status_changes (model_version_id, from_status, to_status, changed_by_identity, reason, evaluation_run_id)
      VALUES ($1,$2,$3,$4,$5,$6)`,
@@ -210,6 +228,10 @@ export async function setEvaluationStatus(
   return toModelVersion(res.rows[0]);
 }
 
-export async function setModelEnabled(q: Queryable, modelVersionId: string, enabled: boolean): Promise<void> {
+export async function setModelEnabled(
+  q: Queryable,
+  modelVersionId: string,
+  enabled: boolean,
+): Promise<void> {
   await q.query("UPDATE model_versions SET enabled = $2 WHERE id = $1", [modelVersionId, enabled]);
 }

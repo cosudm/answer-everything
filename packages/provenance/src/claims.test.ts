@@ -3,7 +3,11 @@ import { evidenceConfidence, extractClaims, referencedLabels, splitSentences } f
 
 describe("referencedLabels", () => {
   it("finds single and grouped markers", () => {
-    expect(referencedLabels("Revenue grew 12% [S1]. Costs fell [S2, S3].")).toEqual(["S1", "S2", "S3"]);
+    expect(referencedLabels("Revenue grew 12% [S1]. Costs fell [S2, S3].")).toEqual([
+      "S1",
+      "S2",
+      "S3",
+    ]);
   });
   it("ignores unrelated brackets", () => {
     expect(referencedLabels("see [link](x) and [1]")).toEqual([]);
@@ -13,7 +17,10 @@ describe("referencedLabels", () => {
 describe("splitSentences", () => {
   it("attaches trailing citation markers to the preceding sentence", () => {
     const s = splitSentences("The policy began in March. [S1] It applies to contractors. [S2, S3]");
-    expect(s.map((x) => x.text)).toEqual(["The policy began in March. [S1]", "It applies to contractors. [S2, S3]"]);
+    expect(s.map((x) => x.text)).toEqual([
+      "The policy began in March. [S1]",
+      "It applies to contractors. [S2, S3]",
+    ]);
   });
   it("keeps offsets into the original text", () => {
     const text = "First sentence here. Second one!";
@@ -51,7 +58,10 @@ describe("extractClaims", () => {
   });
 
   it("skips headings but keeps bullet facts", () => {
-    const claims = extractClaims("## A heading that is long enough\n- a bullet item of some length [S1]", ["S1"]);
+    const claims = extractClaims(
+      "## A heading that is long enough\n- a bullet item of some length [S1]",
+      ["S1"],
+    );
     expect(claims).toHaveLength(1);
     expect(claims[0]!.claimType).toBe("SOURCED_FACT");
     expect(claims[0]!.text).toBe("a bullet item of some length");

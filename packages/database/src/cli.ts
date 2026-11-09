@@ -1,7 +1,13 @@
 import { loadRootEnv } from "./env.js";
 loadRootEnv();
 import pg from "pg";
-import { appliedMigrations, ensureRoles, listMigrationFiles, migrate, resetSchema } from "./migrate.js";
+import {
+  appliedMigrations,
+  ensureRoles,
+  listMigrationFiles,
+  migrate,
+  resetSchema,
+} from "./migrate.js";
 
 async function main() {
   const command = process.argv[2] ?? "migrate";
@@ -18,7 +24,8 @@ async function main() {
         break;
       }
       case "reset": {
-        if ((process.env.AE_ENV ?? "dev") === "prod") throw new Error("refusing to reset a prod database");
+        if ((process.env.AE_ENV ?? "dev") === "prod")
+          throw new Error("refusing to reset a prod database");
         await resetSchema(pool);
         await ensureRoles(pool, rolesFromEnv());
         const result = await migrate(pool);

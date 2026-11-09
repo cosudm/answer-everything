@@ -23,5 +23,8 @@
     "@ae/provenance": "workspace:*",
     "pg": "8.23.1"
   },
-  "devDependencies": { "@types/pg": "8.23.1", "esbuild": "0.28.2" }
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "esbuild": "0.28.2"
+  }
 }

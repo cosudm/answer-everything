@@ -16,7 +16,11 @@ import { classifyHttpError, networkError } from "../util.js";
 export class OpenAiCompatibleAdapter implements ProviderAdapter {
   readonly kind = "openai-compatible" as const;
 
-  async *stream(request: GenerationRequest, ctx: AdapterContext, signal?: AbortSignal): AsyncIterable<ModelEvent> {
+  async *stream(
+    request: GenerationRequest,
+    ctx: AdapterContext,
+    signal?: AbortSignal,
+  ): AsyncIterable<ModelEvent> {
     const fetchImpl = ctx.fetchImpl ?? fetch;
     const messages = [
       ...(request.system ? [{ role: "system", content: request.system }] : []),
@@ -47,7 +51,10 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     signal?.addEventListener("abort", onAbort);
-    const timer = setTimeout(() => controller.abort(new Error("provider timeout")), ctx.timeoutMs ?? 120_000);
+    const timer = setTimeout(
+      () => controller.abort(new Error("provider timeout")),
+      ctx.timeoutMs ?? 120_000,
+    );
 
     let response: Response;
     try {
@@ -77,7 +84,15 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
       const error = classifyHttpError(response.status, text, requestId);
       // Some providers signal policy refusals as HTTP 400 with a content-policy message.
       if (response.status === 400 && /content[_ ]policy|safety|moderation|blocked/i.test(text)) {
-        yield { type: "refusal", refusal: { code: "content_policy", message: error.message, source: "http_error", rawCategory: null } };
+        yield {
+          type: "refusal",
+          refusal: {
+            code: "content_policy",
+            message: error.message,
+            source: "http_error",
+            rawCategory: null,
+          },
+        };
         yield { type: "end", finishReason: "refusal" };
         return;
       }
@@ -105,7 +120,16 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
         }
         if (chunk.error) {
           const e = chunk.error as { message?: string; code?: string; type?: string };
-          yield { type: "error", error: { kind: "UNKNOWN", message: e.message ?? "provider error", httpStatus: null, retryable: false, providerRequestId: requestId } };
+          yield {
+            type: "error",
+            error: {
+              kind: "UNKNOWN",
+              message: e.message ?? "provider error",
+              httpStatus: null,
+              retryable: false,
+              providerRequestId: requestId,
+            },
+          };
           finish = "error";
           break;
         }
@@ -115,7 +139,10 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
           for (const uri of cits) {
             if (typeof uri === "string" && !seenCitations.has(uri)) {
               seenCitations.add(uri);
-              yield { type: "citation", citation: { uri, title: null, excerpt: null, startIndex: null, endIndex: null } };
+              yield {
+                type: "citation",
+                citation: { uri, title: null, excerpt: null, startIndex: null, endIndex: null },
+              };
             }
           }
         }
@@ -124,25 +151,35 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
           usage = {
             inputTokens: u.prompt_tokens ?? 0,
             outputTokens: u.completion_tokens ?? 0,
-            reasoningTokens: (u.completion_tokens_details as unknown as { reasoning_tokens?: number } | undefined)?.reasoning_tokens ?? null,
-            cachedInputTokens: (u.prompt_tokens_details as unknown as { cached_tokens?: number } | undefined)?.cached_tokens ?? null,
+            reasoningTokens:
+              (u.completion_tokens_details as unknown as { reasoning_tokens?: number } | undefined)
+                ?.reasoning_tokens ?? null,
+            cachedInputTokens:
+              (u.prompt_tokens_details as unknown as { cached_tokens?: number } | undefined)
+                ?.cached_tokens ?? null,
             reported: true,
           };
         }
         const choices = (chunk.choices as Array<Record<string, unknown>> | undefined) ?? [];
         for (const choice of choices) {
           const delta = (choice.delta as Record<string, unknown> | undefined) ?? {};
-          if (typeof delta.content === "string" && delta.content.length) yield { type: "delta", text: delta.content };
+          if (typeof delta.content === "string" && delta.content.length)
+            yield { type: "delta", text: delta.content };
           if (typeof delta.reasoning_content === "string" && delta.reasoning_content.length) {
             yield { type: "reasoning_delta", text: delta.reasoning_content };
           }
-          if (typeof delta.refusal === "string" && delta.refusal.length) refusalText += delta.refusal;
+          if (typeof delta.refusal === "string" && delta.refusal.length)
+            refusalText += delta.refusal;
           const tcs = delta.tool_calls as Array<Record<string, unknown>> | undefined;
           if (Array.isArray(tcs)) {
             for (const tc of tcs) {
               const idx = Number(tc.index ?? 0);
               const fn = (tc.function as { name?: string; arguments?: string } | undefined) ?? {};
-              const cur = toolCalls.get(idx) ?? { id: (tc.id as string) ?? `call_${idx}`, name: "", args: "" };
+              const cur = toolCalls.get(idx) ?? {
+                id: (tc.id as string) ?? `call_${idx}`,
+                name: "",
+                args: "",
+              };
               if (tc.id) cur.id = tc.id as string;
               if (fn.name) cur.name += fn.name;
               if (fn.arguments) cur.args += fn.arguments;
@@ -166,12 +203,18 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
       signal?.removeEventListener("abort", onAbort);
     }
 
-    for (const [, tc] of toolCalls) yield { type: "tool_call", call: { id: tc.id, name: tc.name, argumentsJson: tc.args } };
+    for (const [, tc] of toolCalls)
+      yield { type: "tool_call", call: { id: tc.id, name: tc.name, argumentsJson: tc.args } };
     if (usage) yield { type: "usage", usage };
     if (finish === "refusal" || refusalText) {
       yield {
         type: "refusal",
-        refusal: { code: finish === "refusal" ? "content_filter" : "refusal", message: refusalText || null, source: "finish_reason", rawCategory: null },
+        refusal: {
+          code: finish === "refusal" ? "content_filter" : "refusal",
+          message: refusalText || null,
+          source: "finish_reason",
+          rawCategory: null,
+        },
       };
       finish = "refusal";
     }
@@ -183,8 +226,15 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
     const started = Date.now();
     const response = await fetchImpl(`${ctx.baseUrl.replace(/\/$/, "")}/embeddings`, {
       method: "POST",
-      headers: { "content-type": "application/json", ...(ctx.apiKey ? { authorization: `Bearer ${ctx.apiKey}` } : {}) },
-      body: JSON.stringify({ model: ctx.model.providerModelName, input: request.inputs, encoding_format: "float" }),
+      headers: {
+        "content-type": "application/json",
+        ...(ctx.apiKey ? { authorization: `Bearer ${ctx.apiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        model: ctx.model.providerModelName,
+        input: request.inputs,
+        encoding_format: "float",
+      }),
       signal: AbortSignal.timeout(ctx.timeoutMs ?? 60_000),
     });
     if (!response.ok) {
@@ -192,9 +242,16 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
       const err = classifyHttpError(response.status, text, response.headers.get("x-request-id"));
       throw Object.assign(new Error(`embedding failed: ${err.message}`), { providerError: err });
     }
-    const json = (await response.json()) as { data: Array<{ index: number; embedding: number[] }>; usage?: { prompt_tokens?: number } };
+    const json = (await response.json()) as {
+      data: Array<{ index: number; embedding: number[] }>;
+      usage?: { prompt_tokens?: number };
+    };
     const vectors = [...json.data].sort((a, b) => a.index - b.index).map((d) => d.embedding);
-    return { vectors, inputTokens: json.usage?.prompt_tokens ?? null, latencyMs: Date.now() - started };
+    return {
+      vectors,
+      inputTokens: json.usage?.prompt_tokens ?? null,
+      latencyMs: Date.now() - started,
+    };
   }
 
   async health(ctx: AdapterContext) {
@@ -205,7 +262,11 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
         headers: ctx.apiKey ? { authorization: `Bearer ${ctx.apiKey}` } : {},
         signal: AbortSignal.timeout(ctx.timeoutMs ?? 10_000),
       });
-      return { ok: response.ok, latencyMs: Date.now() - started, detail: response.ok ? null : `HTTP ${response.status}` };
+      return {
+        ok: response.ok,
+        latencyMs: Date.now() - started,
+        detail: response.ok ? null : `HTTP ${response.status}`,
+      };
     } catch (err) {
       return { ok: false, latencyMs: Date.now() - started, detail: (err as Error).message };
     }

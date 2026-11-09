@@ -42,7 +42,10 @@ export function chunkText(text: string, opts: ChunkOptions = {}): Chunk[] {
     if (!buf.length) return;
     const first = buf[0]!;
     const last = buf[buf.length - 1]!;
-    const content = buf.map((p) => p.text).join("\n\n").trim();
+    const content = buf
+      .map((p) => p.text)
+      .join("\n\n")
+      .trim();
     if (!content) {
       buf = [];
       bufLen = 0;
@@ -52,11 +55,18 @@ export function chunkText(text: string, opts: ChunkOptions = {}): Chunk[] {
       ordinal: chunks.length,
       content,
       tokenCount: Math.ceil(content.length / 4),
-      locator: { charStart: first.start, charEnd: last.start + last.text.length, heading: bufHeading },
+      locator: {
+        charStart: first.start,
+        charEnd: last.start + last.text.length,
+        heading: bufHeading,
+      },
     });
     // overlap: keep the tail of the last paragraph
     const tail = last.text.slice(-overlap);
-    buf = tail.length >= 40 && tail !== last.text ? [{ text: tail, start: last.start + last.text.length - tail.length }] : [];
+    buf =
+      tail.length >= 40 && tail !== last.text
+        ? [{ text: tail, start: last.start + last.text.length - tail.length }]
+        : [];
     bufLen = buf.reduce((n, p) => n + p.text.length, 0);
     bufHeading = heading;
   };
@@ -90,5 +100,7 @@ export function chunkText(text: string, opts: ChunkOptions = {}): Chunk[] {
   }
   flush();
   // Drop an overlap-only trailing chunk.
-  return chunks.filter((c, i) => i === 0 || c.content.length > 40).map((c, i) => ({ ...c, ordinal: i }));
+  return chunks
+    .filter((c, i) => i === 0 || c.content.length > 40)
+    .map((c, i) => ({ ...c, ordinal: i }));
 }

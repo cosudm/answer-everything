@@ -33,7 +33,9 @@ export function createLogger(opts: LoggerOptions): Logger {
       ],
       censor: "[redacted]",
     },
-    transport: pretty ? { target: "pino-pretty", options: { colorize: true, translateTime: "HH:MM:ss" } } : undefined,
+    transport: pretty
+      ? { target: "pino-pretty", options: { colorize: true, translateTime: "HH:MM:ss" } }
+      : undefined,
   });
 }
 
@@ -133,7 +135,10 @@ export const metrics = {
   modelRuns: new Counter("ae_model_runs_total", "Model runs by model and status"),
   modelTokens: new Counter("ae_model_tokens_total", "Tokens by model and direction"),
   modelCostUsd: new Counter("ae_model_cost_usd_total", "Estimated model spend in USD"),
-  authzDecisions: new Counter("ae_authorization_decisions_total", "Authorization decisions by outcome"),
+  authzDecisions: new Counter(
+    "ae_authorization_decisions_total",
+    "Authorization decisions by outcome",
+  ),
   jobs: new Counter("ae_jobs_total", "Background jobs by type and status"),
   modelLatency: new Histogram("ae_model_latency_ms", "Model run latency in ms"),
   render(): string {

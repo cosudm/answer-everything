@@ -36,7 +36,9 @@ export interface DevProviderServer {
   requests: Array<{ path: string; body: unknown }>;
 }
 
-export async function createDevProviderServer(opts: DevProviderOptions = {}): Promise<DevProviderServer> {
+export async function createDevProviderServer(
+  opts: DevProviderOptions = {},
+): Promise<DevProviderServer> {
   const tokenDelay = opts.tokenDelayMs ?? 8;
   const dims = opts.embeddingDimensions ?? 1536;
   const requests: DevProviderServer["requests"] = [];
@@ -65,8 +67,15 @@ export async function createDevProviderServer(opts: DevProviderOptions = {}): Pr
       json(res, 200, {
         object: "list",
         model: body.model,
-        data: inputs.map((text, index) => ({ object: "embedding", index, embedding: hashEmbedding(text, dims) })),
-        usage: { prompt_tokens: inputs.reduce((n, t) => n + Math.ceil(t.length / 4), 0), total_tokens: 0 },
+        data: inputs.map((text, index) => ({
+          object: "embedding",
+          index,
+          embedding: hashEmbedding(text, dims),
+        })),
+        usage: {
+          prompt_tokens: inputs.reduce((n, t) => n + Math.ceil(t.length / 4), 0),
+          total_tokens: 0,
+        },
       });
       return;
     }
@@ -78,7 +87,10 @@ export async function createDevProviderServer(opts: DevProviderOptions = {}): Pr
 
     const messages: Array<{ role: string; content: string }> = body.messages ?? [];
     const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
-    const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n");
+    const system = messages
+      .filter((m) => m.role === "system")
+      .map((m) => m.content)
+      .join("\n");
 
     if (lastUser.includes("ERROR_500_TEST")) {
       json(res, 500, { error: { message: "simulated upstream failure", type: "server_error" } });
@@ -95,18 +107,35 @@ export async function createDevProviderServer(opts: DevProviderOptions = {}): Pr
 
     const refused = lastUser.includes("REFUSE_TEST");
     const text = refused ? "" : composeAnswer(lastUser, system);
-    const promptTokens = Math.ceil((system.length + messages.map((m) => m.content).join("").length) / 4);
+    const promptTokens = Math.ceil(
+      (system.length + messages.map((m) => m.content).join("").length) / 4,
+    );
     const completionTokens = Math.ceil(text.length / 4);
     const id = `chatcmpl-dev-${Date.now().toString(36)}`;
     const created = Math.floor(Date.now() / 1000);
-    const base = { id, object: "chat.completion.chunk", created, model: body.model ?? "dev-echo-1" };
+    const base = {
+      id,
+      object: "chat.completion.chunk",
+      created,
+      model: body.model ?? "dev-echo-1",
+    };
 
     if (!body.stream) {
       json(res, 200, {
         ...base,
         object: "chat.completion",
-        choices: [{ index: 0, message: { role: "assistant", content: text }, finish_reason: refused ? "content_filter" : "stop" }],
-        usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens },
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: text },
+            finish_reason: refused ? "content_filter" : "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: promptTokens + completionTokens,
+        },
       });
       return;
     }
@@ -119,7 +148,10 @@ export async function createDevProviderServer(opts: DevProviderOptions = {}): Pr
     });
     const send = (obj: unknown) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
     if (lastUser.includes("SLOW_TEST")) await sleep(1500);
-    send({ ...base, choices: [{ index: 0, delta: { role: "assistant", content: "" }, finish_reason: null }] });
+    send({
+      ...base,
+      choices: [{ index: 0, delta: { role: "assistant", content: "" }, finish_reason: null }],
+    });
     if (!refused) {
       // Stream in word-ish pieces so the UI sees progressive rendering.
       for (const piece of text.match(/\S+\s*|\s+/g) ?? []) {
@@ -127,13 +159,26 @@ export async function createDevProviderServer(opts: DevProviderOptions = {}): Pr
         if (tokenDelay) await sleep(tokenDelay);
       }
     }
-    send({ ...base, choices: [{ index: 0, delta: {}, finish_reason: refused ? "content_filter" : "stop" }] });
-    send({ ...base, choices: [], usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens } });
+    send({
+      ...base,
+      choices: [{ index: 0, delta: {}, finish_reason: refused ? "content_filter" : "stop" }],
+    });
+    send({
+      ...base,
+      choices: [],
+      usage: {
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_tokens: promptTokens + completionTokens,
+      },
+    });
     res.write("data: [DONE]\n\n");
     res.end();
   });
 
-  await new Promise<void>((resolve) => server.listen(opts.port ?? 0, opts.host ?? "127.0.0.1", () => resolve()));
+  await new Promise<void>((resolve) =>
+    server.listen(opts.port ?? 0, opts.host ?? "127.0.0.1", () => resolve()),
+  );
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : (opts.port ?? 0);
   return {
@@ -161,7 +206,9 @@ export function composeAnswer(question: string, system: string): string {
   }
   const q = question.replace(/\s+/g, " ").trim().slice(0, 240);
   const lines: string[] = [];
-  lines.push(`**Local development model (stub).** This is a templated reply, not a real answer to: “${q}”.`);
+  lines.push(
+    `**Local development model (stub).** This is a templated reply, not a real answer to: “${q}”.`,
+  );
   lines.push("");
   if (sources.length) {
     lines.push("Based on the sources supplied by the platform:");
@@ -171,11 +218,17 @@ export function composeAnswer(question: string, system: string): string {
       lines.push(`- ${first} [${s.label}]`);
     }
     lines.push("");
-    lines.push("Statements above that carry a source label were taken from those sources. This sentence has no source and is here so claim classification has something uncited to label.");
+    lines.push(
+      "Statements above that carry a source label were taken from those sources. This sentence has no source and is here so claim classification has something uncited to label.",
+    );
   } else {
-    lines.push("No workspace sources were supplied for this turn, so there is nothing to cite. In a real deployment a frontier or private model would answer here.");
+    lines.push(
+      "No workspace sources were supplied for this turn, so there is nothing to cite. In a real deployment a frontier or private model would answer here.",
+    );
     lines.push("");
-    lines.push("You should connect a real provider in `.env` (for example `ANTHROPIC_API_KEY`) to replace this stub.");
+    lines.push(
+      "You should connect a real provider in `.env` (for example `ANTHROPIC_API_KEY`) to replace this stub.",
+    );
   }
   return lines.join("\n");
 }
@@ -195,7 +248,10 @@ function firstSentence(text: string): string {
 
 function json(res: http.ServerResponse, status: number, body: unknown) {
   const payload = JSON.stringify(body);
-  res.writeHead(status, { "content-type": "application/json", "content-length": Buffer.byteLength(payload) });
+  res.writeHead(status, {
+    "content-type": "application/json",
+    "content-length": Buffer.byteLength(payload),
+  });
   res.end(payload);
 }
 

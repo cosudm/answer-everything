@@ -29,8 +29,20 @@ export default tseslint.config(
     },
   },
   {
-    files: ["tools/**", "**/scripts/**", "**/*.test.ts", "**/test/**"],
-    rules: { "no-console": "off" },
+    files: [
+      "tools/**",
+      "**/scripts/**",
+      "**/*.test.ts",
+      "**/test/**",
+      "**/cli.ts",
+      "**/server.ts",
+      "**/main.ts",
+    ],
+    rules: { "no-console": "off", "@typescript-eslint/no-explicit-any": "off" },
+  },
+  {
+    files: ["test/**/*.mjs"],
+    languageOptions: { globals: { process: "readonly", console: "readonly" } },
   },
   prettier,
 );

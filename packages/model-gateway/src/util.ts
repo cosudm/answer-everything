@@ -40,7 +40,11 @@ export function hashText(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
 
-export function classifyHttpError(status: number, body: string, requestId: string | null): ProviderError {
+export function classifyHttpError(
+  status: number,
+  body: string,
+  requestId: string | null,
+): ProviderError {
   let kind: ProviderErrorKind = "UNKNOWN";
   let retryable = false;
   if (status === 401 || status === 403) kind = "AUTHENTICATION";
@@ -48,7 +52,9 @@ export function classifyHttpError(status: number, body: string, requestId: strin
     kind = /quota|billing|insufficient/i.test(body) ? "QUOTA_EXCEEDED" : "RATE_LIMITED";
     retryable = kind === "RATE_LIMITED";
   } else if (status === 400 || status === 404 || status === 422) {
-    kind = /context|too long|maximum.*tokens|token limit/i.test(body) ? "CONTEXT_TOO_LONG" : "INVALID_REQUEST";
+    kind = /context|too long|maximum.*tokens|token limit/i.test(body)
+      ? "CONTEXT_TOO_LONG"
+      : "INVALID_REQUEST";
   } else if (status === 408 || status === 504) {
     kind = "TIMEOUT";
     retryable = true;
@@ -67,7 +73,8 @@ export function classifyHttpError(status: number, body: string, requestId: strin
 
 export function networkError(err: unknown): ProviderError {
   const e = err as Error & { name?: string; code?: string };
-  const timeout = e?.name === "AbortError" || e?.name === "TimeoutError" || /timeout/i.test(e?.message ?? "");
+  const timeout =
+    e?.name === "AbortError" || e?.name === "TimeoutError" || /timeout/i.test(e?.message ?? "");
   return {
     kind: timeout ? "TIMEOUT" : "NETWORK",
     message: e?.message ?? "network error",
@@ -97,5 +104,7 @@ function summarizeBody(body: string): string {
 export function looksLikeTextRefusal(text: string): boolean {
   const t = text.trim();
   if (t.length === 0 || t.length > 400) return false;
-  return /^(i('m| am) (sorry|unable)|i can(no|')t (help|assist|provide|comply)|i won'?t be able to|as an ai[, ]|i must decline|i'm not able to (help|assist|provide))/i.test(t);
+  return /^(i('m| am) (sorry|unable)|i can(no|')t (help|assist|provide|comply)|i won'?t be able to|as an ai[, ]|i must decline|i'm not able to (help|assist|provide))/i.test(
+    t,
+  );
 }

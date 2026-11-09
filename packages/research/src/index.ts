@@ -40,13 +40,26 @@ export function planResearch(question: string): ResearchStep[] {
 
 export async function createResearchTask(
   q: Queryable,
-  input: { workspaceId: string; conversationId: string | null; projectId: string | null; actingIdentityId: string; question: string },
+  input: {
+    workspaceId: string;
+    conversationId: string | null;
+    projectId: string | null;
+    actingIdentityId: string;
+    question: string;
+  },
 ): Promise<ResearchTask> {
   const steps = planResearch(input.question);
   const res = await q.query(
     `INSERT INTO research_tasks (workspace_id, conversation_id, project_id, acting_identity_id, question, status, steps)
      VALUES ($1,$2,$3,$4,$5,'QUEUED',$6) RETURNING *`,
-    [input.workspaceId, input.conversationId, input.projectId, input.actingIdentityId, input.question, JSON.stringify(steps)],
+    [
+      input.workspaceId,
+      input.conversationId,
+      input.projectId,
+      input.actingIdentityId,
+      input.question,
+      JSON.stringify(steps),
+    ],
   );
   return toTask(res.rows[0]);
 }

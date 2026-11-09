@@ -1,7 +1,15 @@
 import { randomUUID } from "node:crypto";
 import type { Queryable } from "@ae/database";
 import { isoRequired } from "@ae/database";
-import type { AnswerStrategy, ChatMessage, ContextManifest, ContextManifestItem, Message, PrivacyClass, SearchHit } from "@ae/domain";
+import type {
+  AnswerStrategy,
+  ChatMessage,
+  ContextManifest,
+  ContextManifestItem,
+  Message,
+  PrivacyClass,
+  SearchHit,
+} from "@ae/domain";
 import { PRIVACY_RANK, highestPrivacyClass } from "@ae/domain";
 import { hybridSearch } from "@ae/knowledge";
 import type { ModelGateway } from "@ae/model-gateway";
@@ -52,7 +60,7 @@ export async function buildContext(q: Queryable, input: BuildContextInput): Prom
   let used = 0;
 
   // 1. Sources
-  let sources: SourceBlock[] = [];
+  const sources: SourceBlock[] = [];
   let retrieval: ContextManifest["retrieval"] = null;
   let filteredByPrivacy = 0;
   if (input.useKnowledge || input.attachmentIds.length) {
@@ -70,7 +78,10 @@ export async function buildContext(q: Queryable, input: BuildContextInput): Prom
         queryEmbedding = emb.vectors[0] ?? null;
         method = "hybrid";
       } catch (err) {
-        input.logger.warn({ err: (err as Error).message }, "query embedding failed; falling back to lexical retrieval");
+        input.logger.warn(
+          { err: (err as Error).message },
+          "query embedding failed; falling back to lexical retrieval",
+        );
       }
     }
     const hits: SearchHit[] = [];
@@ -115,16 +126,21 @@ export async function buildContext(q: Queryable, input: BuildContextInput): Prom
       const fits = sourceTokens + tokens <= sourceBudget;
       const item: ContextManifestItem = {
         id: randomUUID(),
-        kind: input.attachmentIds.includes(hit.knowledgeObjectId) ? "ATTACHMENT" : "KNOWLEDGE_CHUNK",
+        kind: input.attachmentIds.includes(hit.knowledgeObjectId)
+          ? "ATTACHMENT"
+          : "KNOWLEDGE_CHUNK",
         refId: hit.chunkId,
         knowledgeObjectId: hit.knowledgeObjectId,
         label: fits ? `S${label}` : null,
         privacyClass: hit.privacyClass,
         tokens,
-        rank: items.filter((i) => i.kind === "KNOWLEDGE_CHUNK" || i.kind === "ATTACHMENT").length + 1,
+        rank:
+          items.filter((i) => i.kind === "KNOWLEDGE_CHUNK" || i.kind === "ATTACHMENT").length + 1,
         score: hit.score,
         included: fits,
-        reason: fits ? `retrieved (${hit.lexicalRank != null ? `lexical #${hit.lexicalRank}` : ""}${hit.lexicalRank != null && hit.vectorRank != null ? ", " : ""}${hit.vectorRank != null ? `vector #${hit.vectorRank}` : ""})` : "dropped: source token budget exhausted",
+        reason: fits
+          ? `retrieved (${hit.lexicalRank != null ? `lexical #${hit.lexicalRank}` : ""}${hit.lexicalRank != null && hit.vectorRank != null ? ", " : ""}${hit.vectorRank != null ? `vector #${hit.vectorRank}` : ""})`
+          : "dropped: source token budget exhausted",
         authorizationDecisionId: input.authorizationDecisionId,
       };
       items.push(item);
@@ -135,7 +151,12 @@ export async function buildContext(q: Queryable, input: BuildContextInput): Prom
       }
     }
     used += sourceTokens;
-    retrieval = { query: input.userMessage.content.slice(0, 500), candidates: hits.length, used: sources.length, method };
+    retrieval = {
+      query: input.userMessage.content.slice(0, 500),
+      candidates: hits.length,
+      used: sources.length,
+      method,
+    };
   }
 
   // 2. System prompt
@@ -179,7 +200,12 @@ export async function buildContext(q: Queryable, input: BuildContextInput): Prom
   const historyBudget = Math.max(0, input.tokenBudget - used);
   const chosen: Message[] = [];
   let historyTokens = 0;
-  const prior = input.history.filter((m) => m.id !== input.userMessage.id && m.status === "COMPLETE" && (m.role === "USER" || m.role === "ASSISTANT"));
+  const prior = input.history.filter(
+    (m) =>
+      m.id !== input.userMessage.id &&
+      m.status === "COMPLETE" &&
+      (m.role === "USER" || m.role === "ASSISTANT"),
+  );
   for (const m of [...prior].reverse()) {
     const t = estimate(m.content);
     const fits = historyTokens + t <= historyBudget;
@@ -194,7 +220,9 @@ export async function buildContext(q: Queryable, input: BuildContextInput): Prom
       rank: null,
       score: null,
       included: fits,
-      reason: fits ? `prior ${m.role.toLowerCase()} turn` : "dropped: history token budget exhausted",
+      reason: fits
+        ? `prior ${m.role.toLowerCase()} turn`
+        : "dropped: history token budget exhausted",
       authorizationDecisionId: null,
     });
     if (fits) {
@@ -253,7 +281,10 @@ export async function buildContext(q: Queryable, input: BuildContextInput): Prom
   };
 
   const messages: ChatMessage[] = [
-    ...chosen.map((m) => ({ role: m.role === "USER" ? ("user" as const) : ("assistant" as const), content: m.content })),
+    ...chosen.map((m) => ({
+      role: m.role === "USER" ? ("user" as const) : ("assistant" as const),
+      content: m.content,
+    })),
     { role: "user", content: input.userMessage.content },
   ];
   return { manifest, system, messages, sources, filteredByPrivacy };

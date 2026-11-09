@@ -57,7 +57,12 @@ export const Provider = z.object({
 });
 export type Provider = z.infer<typeof Provider>;
 
-export const DeploymentType = z.enum(["COMMERCIAL_API", "DEDICATED_ENDPOINT", "OPEN_WEIGHT", "LOCAL"]);
+export const DeploymentType = z.enum([
+  "COMMERCIAL_API",
+  "DEDICATED_ENDPOINT",
+  "OPEN_WEIGHT",
+  "LOCAL",
+]);
 export type DeploymentType = z.infer<typeof DeploymentType>;
 
 export const BehavioralProfile = z.enum([
