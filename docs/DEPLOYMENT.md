@@ -51,3 +51,7 @@ Container Apps revisions: re-point traffic to the previous revision. Database mi
 ## Local
 
 `docker compose up` or `pnpm dev` (see README). `pnpm db:reset` rebuilds the schema and refuses when `AE_ENV=prod`.
+
+## Cloudflare (Workers + Containers)
+
+An alternative to the Azure stack for a quick hosted environment: one Worker fronting the API and web containers on a single origin, built and deployed by Workers Builds from the GitHub repository, with an external PostgreSQL (pgvector) such as Neon. See `apps/cloudflare/README.md` for the exact dashboard steps and the secrets to set. ADR-0013 records the decision.

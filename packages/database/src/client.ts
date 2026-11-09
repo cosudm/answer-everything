@@ -53,14 +53,40 @@ export function createDatabase(config: DatabaseConfig): Database {
 
 export function databaseConfigFromEnv(env: NodeJS.ProcessEnv = process.env): DatabaseConfig {
   const migratorUrl = env.DATABASE_URL;
-  const appUrl = env.DATABASE_APP_URL;
-  const identityUrl = env.DATABASE_IDENTITY_URL;
-  if (!migratorUrl || !appUrl || !identityUrl) {
+  if (!migratorUrl) {
+    throw new Error("DATABASE_URL must be set (see .env.example)");
+  }
+  // Hosted deployments usually provide one admin connection string. The two
+  // application roles are derived from it with their own passwords, which the
+  // migration runner also uses when it creates the roles.
+  const appUrl =
+    env.DATABASE_APP_URL ?? deriveRoleUrl(migratorUrl, "ae_app", env.AE_DB_APP_PASSWORD);
+  const identityUrl =
+    env.DATABASE_IDENTITY_URL ??
+    deriveRoleUrl(migratorUrl, "ae_identity", env.AE_DB_IDENTITY_PASSWORD);
+  if (!appUrl || !identityUrl) {
     throw new Error(
-      "DATABASE_URL, DATABASE_APP_URL and DATABASE_IDENTITY_URL must all be set (see .env.example)",
+      "Set DATABASE_APP_URL and DATABASE_IDENTITY_URL, or AE_DB_APP_PASSWORD and AE_DB_IDENTITY_PASSWORD so they can be derived from DATABASE_URL",
     );
   }
   return { migratorUrl, appUrl, identityUrl };
+}
+
+/** Replaces the user and password of a postgres:// URL, keeping host, database and query (sslmode etc.). */
+export function deriveRoleUrl(
+  adminUrl: string,
+  role: string,
+  password: string | undefined,
+): string | null {
+  if (!password) return null;
+  try {
+    const u = new URL(adminUrl);
+    u.username = role;
+    u.password = encodeURIComponent(password);
+    return u.toString();
+  } catch {
+    return null;
+  }
 }
 
 /**

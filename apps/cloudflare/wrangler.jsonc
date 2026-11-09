@@ -1,0 +1,51 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // One Worker fronts the whole application on a single origin:
+  //   /v1/*, /health, /metrics  -> API container (Fastify + embedded job runner)
+  //   everything else           -> web container (Next.js standalone)
+  // Workers Builds deploys this on push to the production branch with
+  // `npx wrangler deploy`, building both Dockerfiles from the repository root.
+  "name": "answer-everything",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "upload_source_maps": true,
+  "observability": { "enabled": true },
+  "containers": [
+    {
+      "class_name": "ApiContainer",
+      "image": "../../infra/docker/api.Dockerfile",
+      "image_build_context": "../..",
+      "instance_type": "basic",
+      "max_instances": 2,
+    },
+    {
+      "class_name": "WebContainer",
+      "image": "../../infra/docker/web.Dockerfile",
+      "image_build_context": "../..",
+      "image_vars": { "NEXT_PUBLIC_API_URL": "" },
+      "instance_type": "basic",
+      "max_instances": 2,
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "API", "class_name": "ApiContainer" },
+      { "name": "WEB", "class_name": "WebContainer" },
+    ],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ApiContainer", "WebContainer"] }],
+  // Non-secret runtime configuration passed into the API container.
+  // Secrets (DATABASE_URL, AE_DB_APP_PASSWORD, AE_DB_IDENTITY_PASSWORD,
+  // AE_SESSION_SECRET, provider keys) are set in the dashboard under
+  // Settings -> Variables and Secrets and forwarded by src/index.ts.
+  "vars": {
+    "AE_ENV": "uat",
+    "LOG_LEVEL": "info",
+    "AE_EMBEDDED_WORKER": "true",
+    "AE_EMBEDDED_DEV_PROVIDER": "true",
+    "AE_DEFAULT_ALLOW_EXPERIMENTAL": "true",
+    "AE_EMBEDDING_MODEL": "local-dev/dev-embed-1536",
+    "AE_DEFAULT_WORKSPACE_MONTHLY_BUDGET_USD": "25",
+  },
+}

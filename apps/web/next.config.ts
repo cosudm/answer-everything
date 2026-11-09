@@ -1,9 +1,12 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@ae/domain"],
   output: "standalone",
+  // Monorepo: trace files from the workspace root so the standalone bundle is complete.
+  outputFileTracingRoot: path.join(__dirname, "../.."),
   poweredByHeader: false,
   // Shared packages are consumed as TypeScript source with ".js" specifiers.
   webpack: (config) => {

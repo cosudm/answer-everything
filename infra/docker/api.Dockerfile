@@ -29,7 +29,10 @@ COPY --from=build /repo/apps/api/dist ./dist
 COPY --from=build /repo/node_modules ./node_modules
 COPY --from=build /repo/packages/database/migrations ./migrations
 COPY --from=build /repo/config ./config
+COPY infra/docker/api-start.sh ./start.sh
+RUN chmod +x ./start.sh
+ENV AE_MIGRATIONS_DIR=/app/migrations AE_MODEL_SEED_PATH=/app/config/models.seed.json
 USER ae
 EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "dist/server.js"]
+CMD ["./start.sh"]
