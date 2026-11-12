@@ -10,6 +10,10 @@
   "compatibility_date": "2026-10-13",
   "compatibility_flags": ["nodejs_compat"],
   "upload_source_maps": true,
+  // Served at answer-everything.<account-subdomain>.workers.dev. Per-version
+  // preview URLs are off: each one would start its own pair of containers.
+  "workers_dev": true,
+  "preview_urls": false,
   "observability": { "enabled": true },
   "containers": [
     {

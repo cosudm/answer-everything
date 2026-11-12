@@ -9,6 +9,8 @@ Added
 - One-secret durable setup on Cloudflare: outside prod the session secret and role passwords are derived from `DATABASE_URL`.
 - `infra/docker/smoke.sh` and a CI job that builds, runs and smoke-tests every image.
 - Single-container switches: `AE_EMBEDDED_WORKER`, `AE_EMBEDDED_DEV_PROVIDER`, `AE_EMBEDDED_DATABASE`.
+- `AE_SIGNUP_ALLOWLIST`: optional restriction of registration to listed addresses and domains.
+- Cloudflare edge guard: scanner paths and `robots.txt` (outside prod) are answered by the Worker without waking a container; the API warm-up runs only for browser navigations.
 
 Fixed
 

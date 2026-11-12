@@ -25,6 +25,7 @@ export interface DeploymentVariables {
   AE_EMBEDDING_MODEL?: string;
   AE_DEFAULT_WORKSPACE_MONTHLY_BUDGET_USD?: string;
   AE_RATE_LIMIT_PER_MINUTE?: string;
+  AE_SIGNUP_ALLOWLIST?: string;
   DATABASE_URL?: string;
   DATABASE_APP_URL?: string;
   DATABASE_IDENTITY_URL?: string;
@@ -49,6 +50,7 @@ const FORWARDED_KEYS: Array<keyof DeploymentVariables> = [
   "AE_EMBEDDING_MODEL",
   "AE_DEFAULT_WORKSPACE_MONTHLY_BUDGET_USD",
   "AE_RATE_LIMIT_PER_MINUTE",
+  "AE_SIGNUP_ALLOWLIST",
   "DATABASE_URL",
   "DATABASE_APP_URL",
   "DATABASE_IDENTITY_URL",
@@ -180,4 +182,28 @@ function toHex(buffer: ArrayBuffer): string {
  */
 export function isApiPath(pathname: string): boolean {
   return pathname === "/health" || pathname === "/v1" || pathname.startsWith("/v1/");
+}
+
+/**
+ * Paths that vulnerability scanners request on every public hostname. Nothing
+ * in this application lives there, and a container bills for every second it
+ * is awake, so these are answered at the edge without waking anything.
+ */
+const PROBE_EXTENSION = /\.(php\d?|aspx?|jsp|cgi|env|sql|bak|ini|ya?ml|log|sh|pem|key)$/i;
+const PROBE_PREFIX =
+  /^\/(wp-|wordpress|phpmyadmin|pma|cgi-bin|vendor\/|\.git|\.env|\.aws|\.ssh|\.svn|\.vscode|actuator|server-status|xmlrpc)/i;
+
+export function isProbePath(pathname: string): boolean {
+  return PROBE_EXTENSION.test(pathname) || PROBE_PREFIX.test(pathname);
+}
+
+/**
+ * True for a person opening a page in a browser. Browsers label navigations
+ * with Sec-Fetch headers; scripts and most crawlers do not, so they never
+ * trigger the API warm-up.
+ */
+export function isBrowserNavigation(headers: Headers): boolean {
+  return (
+    headers.get("sec-fetch-mode") === "navigate" && headers.get("sec-fetch-dest") === "document"
+  );
 }

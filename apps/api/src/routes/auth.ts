@@ -12,6 +12,7 @@ import {
   setSessionCookies,
 } from "../plugins/auth.js";
 import { ApiHttpError } from "../plugins/errors.js";
+import { signupAllowed } from "../signup.js";
 
 export async function authRoutes(app: FastifyInstance, ctx: AppContext) {
   const cookieOpts = {
@@ -23,6 +24,15 @@ export async function authRoutes(app: FastifyInstance, ctx: AppContext) {
 
   app.post("/v1/auth/register", strict, async (req, reply) => {
     const input = RegisterInput.parse(req.body);
+    if (!signupAllowed(input.email, ctx.config.AE_SIGNUP_ALLOWLIST)) {
+      // The address stays out of the log; the refusal itself is worth seeing.
+      req.log.info("sign-up refused: address is not on the allowlist");
+      throw new ApiHttpError(
+        403,
+        "SIGNUP_RESTRICTED",
+        "Sign-up here is limited to invited addresses. Ask the owner of this environment to add yours.",
+      );
+    }
     const result = await ctx.identity.register(input, clientMeta(req));
     // Dev convenience: new workspaces may opt into experimental models by default (never in prod).
     if (ctx.config.AE_DEFAULT_ALLOW_EXPERIMENTAL && !ctx.config.isProd) {

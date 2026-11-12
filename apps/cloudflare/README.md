@@ -40,13 +40,24 @@ Until a provider key exists, answers come from the labelled local stub. Add any 
 
 On demo storage, adding a key restarts the API container and therefore clears the demo data.
 
+## Restrict sign-up before adding a paid key
+
+The site is public and anyone can create an account. That is harmless on the stub model. With a paid provider key it is not: each new workspace gets its own monthly model budget. Before adding a key, do one of these:
+
+- Add a secret `AE_SIGNUP_ALLOWLIST` with the addresses and domains that may register, comma-separated, for example `ada@example.com, @yourcompany.com`. Everyone else gets a clear "invited addresses only" message.
+- Or put Cloudflare Access in front of the Worker (**Settings, Domains & Routes**), which also keeps stray traffic from waking the containers.
+
+## What it costs
+
+Containers bill for the time they are awake: two `basic` instances are about 2 cents per hour together, and they sleep after 30 minutes without requests. Scanner traffic that every public hostname receives is answered by the Worker itself (see `isProbePath`), and `robots.txt` disallows crawling outside prod, so neither wakes a container.
+
 ## Going to production on Cloudflare
 
 Set these in `wrangler.jsonc` under `vars`: `AE_ENV=prod`, `AE_EMBEDDED_DEV_PROVIDER=false`, `AE_EMBEDDED_DATABASE=false`, `AE_DEFAULT_ALLOW_EXPERIMENTAL=false`, and point `AE_EMBEDDING_MODEL` at a real embedding model. In prod nothing is derived: `DATABASE_URL`, `AE_SESSION_SECRET`, `AE_DB_APP_PASSWORD` and `AE_DB_IDENTITY_PASSWORD` must all be set as secrets, and the Worker answers `503 NOT_CONFIGURED` naming whichever is missing.
 
 ## How it behaves
 
-- **Cold starts.** Containers sleep after 30 minutes idle. The next visitor sees a short "starting" page that reloads itself, and the first API call waits while migrations and the registry seed run. Opening any page starts waking the API in the background.
+- **Cold starts.** Containers sleep after 30 minutes idle. The next visitor sees a short "starting" page that reloads itself, and the first API call waits while migrations and the registry seed run. A browser opening any page starts waking the API in the background; scripts and crawlers do not.
 - **Configuration changes.** The API container instance is named after a hash of its environment, so a changed secret gets a new instance instead of one still running with the old values. The previous instance sleeps on its own.
 - **One API instance.** The in-process job runner is the only worker. To scale out, move the runner to its own container (`infra/docker/worker.Dockerfile`).
 - **Client addresses.** The Worker passes Cloudflare's `CF-Connecting-IP` to the API as `X-Forwarded-For`, overwriting anything the visitor sent, so rate limits and audit records see the real address.

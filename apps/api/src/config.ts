@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseSignupAllowlist } from "./signup.js";
 
 const Env = z.object({
   AE_ENV: z.enum(["dev", "uat", "prod", "test"]).default("dev"),
@@ -39,6 +40,12 @@ const Env = z.object({
     .string()
     .optional()
     .transform((v) => v === "true"),
+  /**
+   * Who may create an account: comma-separated addresses and @domains.
+   * Unset means open sign-up. Set it before giving a public environment a
+   * paid provider key.
+   */
+  AE_SIGNUP_ALLOWLIST: z.string().optional().transform(parseSignupAllowlist),
   LOG_LEVEL: z.string().default("info"),
 });
 

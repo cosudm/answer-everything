@@ -126,7 +126,11 @@ export function testSeed(providerUrl: string) {
 }
 
 export async function createHarness(
-  opts: { allowExperimentalByDefault?: boolean; deadProvider?: boolean } = {},
+  opts: {
+    allowExperimentalByDefault?: boolean;
+    deadProvider?: boolean;
+    signupAllowlist?: string;
+  } = {},
 ): Promise<Harness> {
   const provider = await createDevProviderServer({ tokenDelayMs: 0 });
   const config = loadConfig({
@@ -138,6 +142,7 @@ export async function createHarness(
     AE_EMBEDDING_MODEL: "local-dev/dev-embed-1536",
     LOG_LEVEL: "silent",
     WEB_PUBLIC_URL: "http://localhost:3000",
+    AE_SIGNUP_ALLOWLIST: opts.signupAllowlist ?? "",
   });
   const db = openTestDatabase();
   await truncateAll(db);

@@ -13,13 +13,13 @@ All workspace-scoped routes live under `/v1/workspaces/:workspaceId/...` so the 
 
 ## Auth
 
-| Method | Path                | Body                                      | Notes                                                                  |
-| ------ | ------------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
-| POST   | `/v1/auth/register` | `{ email, password, displayName }`        | 201; sets cookies; creates personal workspace. Rate limited 20/min.    |
-| POST   | `/v1/auth/login`    | `{ email, password }`                     | 200; sets cookies. 401 INVALID_CREDENTIALS, 429 ACCOUNT_LOCKED.        |
-| POST   | `/v1/auth/refresh`  | cookie `ae_refresh` or `{ refreshToken }` | Rotates both tokens; reuse of a rotated token revokes the chain (401). |
-| POST   | `/v1/auth/logout`   |                                           | 204                                                                    |
-| GET    | `/v1/auth/me`       |                                           | `{ user, actingIdentity, workspaces[] }`                               |
+| Method | Path                | Body                                      | Notes                                                                                                                                                     |
+| ------ | ------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/v1/auth/register` | `{ email, password, displayName }`        | 201; sets cookies; creates personal workspace. Rate limited 20/min. 403 SIGNUP_RESTRICTED when `AE_SIGNUP_ALLOWLIST` is set and the address is not on it. |
+| POST   | `/v1/auth/login`    | `{ email, password }`                     | 200; sets cookies. 401 INVALID_CREDENTIALS, 429 ACCOUNT_LOCKED.                                                                                           |
+| POST   | `/v1/auth/refresh`  | cookie `ae_refresh` or `{ refreshToken }` | Rotates both tokens; reuse of a rotated token revokes the chain (401).                                                                                    |
+| POST   | `/v1/auth/logout`   |                                           | 204                                                                                                                                                       |
+| GET    | `/v1/auth/me`       |                                           | `{ user, actingIdentity, workspaces[] }`                                                                                                                  |
 
 ## Workspaces and projects
 

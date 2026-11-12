@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { deriveSecret, fingerprint, isApiPath, resolveApiEnvironment } from "./config";
+import {
+  deriveSecret,
+  fingerprint,
+  isApiPath,
+  isBrowserNavigation,
+  isProbePath,
+  resolveApiEnvironment,
+} from "./config";
 
 const DB = "postgres://owner:pw@db.example.com/answer?sslmode=require";
 
@@ -140,5 +147,64 @@ describe("isApiPath", () => {
     for (const path of ["/", "/login", "/_next/static/a.js", "/metrics", "/healthy", "/v10/x"]) {
       expect(isApiPath(path)).toBe(false);
     }
+  });
+});
+
+describe("isProbePath", () => {
+  it("recognises what scanners ask every public hostname for", () => {
+    for (const path of [
+      "/wp-login.php",
+      "/wp-admin/setup-config.php",
+      "/.env",
+      "/.git/config",
+      "/phpmyadmin/index.php",
+      "/cgi-bin/luci",
+      "/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php",
+      "/config.yml",
+      "/backup.sql",
+      "/xmlrpc.php",
+    ]) {
+      expect(isProbePath(path), path).toBe(true);
+    }
+  });
+
+  it("never matches a route the application serves", () => {
+    for (const path of [
+      "/",
+      "/login",
+      "/register",
+      "/ask/3f2c0d5e-1111-2222-3333-444455556666",
+      "/knowledge",
+      "/projects",
+      "/models/abc",
+      "/history",
+      "/research",
+      "/settings",
+      "/favicon.ico",
+      "/robots.txt",
+      "/_next/static/chunks/main-app-a1d6e6be6b9de462.js",
+      "/_next/static/css/1b0fefeb1ea62321.css",
+      "/v1/auth/me",
+      "/v1/workspaces/x/knowledge/upload",
+      "/health",
+    ]) {
+      expect(isProbePath(path), path).toBe(false);
+    }
+  });
+});
+
+describe("isBrowserNavigation", () => {
+  it("is true only for a browser loading a document", () => {
+    const navigation = new Headers({ "sec-fetch-mode": "navigate", "sec-fetch-dest": "document" });
+    expect(isBrowserNavigation(navigation)).toBe(true);
+    expect(isBrowserNavigation(new Headers({ accept: "text/html" }))).toBe(false);
+    expect(
+      isBrowserNavigation(new Headers({ "sec-fetch-mode": "cors", "sec-fetch-dest": "empty" })),
+    ).toBe(false);
+    expect(
+      isBrowserNavigation(
+        new Headers({ "sec-fetch-mode": "navigate", "sec-fetch-dest": "iframe" }),
+      ),
+    ).toBe(false);
   });
 });

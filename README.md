@@ -36,6 +36,10 @@ Without provider keys the Auto router selects the **Local Development Model (stu
 
 With Docker: `docker compose up` starts PostgreSQL (pgvector), migrations and seed, the dev provider, API, worker and web.
 
+## Hosted
+
+The `main` branch deploys to Cloudflare (one Worker in front of an API container and a web container) on every push: https://answer-everything.morning-cake-9876.workers.dev. It starts on labelled demo storage and becomes durable with one secret. See `apps/cloudflare/README.md`.
+
 ## Repository layout
 
 ```

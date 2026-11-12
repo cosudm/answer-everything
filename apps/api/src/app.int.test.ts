@@ -406,3 +406,34 @@ describeDb("API vertical slice: authentication through a streaming answer", () =
     expect(res.body).toContain("ae_authorization_decisions_total");
   });
 });
+
+describeDb("sign-up allowlist", () => {
+  let restricted: Harness;
+  beforeAll(async () => {
+    restricted = await createHarness({ signupAllowlist: "ada@example.com, @team.test" });
+  });
+  afterAll(async () => {
+    await restricted.close();
+  });
+
+  const register = (email: string) =>
+    restricted.app.inject({
+      method: "POST",
+      url: "/v1/auth/register",
+      payload: { email, password: "a long and sturdy passphrase", displayName: "Test" },
+    });
+
+  it("refuses addresses that are not listed, before any account exists", async () => {
+    const res = await register("mallory@elsewhere.test");
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe("SIGNUP_RESTRICTED");
+    expect(res.headers["set-cookie"]).toBeUndefined();
+    const users = await restricted.db.migrator.query("SELECT count(*)::int AS n FROM users");
+    expect(users.rows[0].n).toBe(0);
+  });
+
+  it("admits a listed address and a listed domain", async () => {
+    expect((await register("ada@example.com")).statusCode).toBe(201);
+    expect((await register("grace@team.test")).statusCode).toBe(201);
+  });
+});

@@ -1,6 +1,8 @@
 import { Container, getContainer } from "@cloudflare/containers";
 import {
   isApiPath,
+  isBrowserNavigation,
+  isProbePath,
   resolveApiEnvironment,
   type ApiEnvironment,
   type DeploymentVariables,
@@ -202,8 +204,17 @@ export default {
     const url = new URL(request.url);
     if (isApiPath(url.pathname)) return handleApi(request, env, url.origin);
 
-    // Someone opening a page will call the API next: start waking it now.
-    if (wantsDocument(request)) {
+    // Answered here, so stray traffic never wakes (and bills) a container.
+    if (isProbePath(url.pathname)) return new Response("Not found", { status: 404 });
+    if (url.pathname === "/robots.txt" && env.AE_ENV !== "prod") {
+      // Demo and test environments stay out of search indexes.
+      return new Response("User-agent: *\nDisallow: /\n", {
+        headers: { "content-type": "text/plain; charset=utf-8" },
+      });
+    }
+
+    // A person opening a page will call the API next: start waking it now.
+    if (isBrowserNavigation(request.headers)) {
       ctx.waitUntil(
         apiEnvironment(env)
           .then((config) => (config.ok ? startApi(env, config, url.origin) : undefined))
