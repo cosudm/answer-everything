@@ -1,0 +1,23 @@
+# Keep the build context to what the Dockerfiles actually copy. Anything a
+# previous `pnpm install` or build left behind must not leak into an image.
+.git
+.github
+**/node_modules
+**/.next
+**/dist
+**/.wrangler
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+
+# Local configuration and secrets never belong in an image.
+.env
+.env.*
+!.env.example
+
+# Not needed to build or run.
+docs
+test
+*.md
+infra/terraform
+docker-compose.yml

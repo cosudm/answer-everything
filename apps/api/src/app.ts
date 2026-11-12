@@ -62,15 +62,21 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
     reply.header("x-request-id", _req.id);
   });
 
-  app.get("/health", async () => {
+  app.get("/health", async (req) => {
+    // Public endpoint: say whether the database answers, keep the reason in the log.
     const db = await ctx.db.app
       .query("SELECT 1")
       .then(() => "ok")
-      .catch((e: Error) => `error: ${e.message}`);
+      .catch((err: Error) => {
+        req.log.error({ err }, "health check: database query failed");
+        return "unreachable";
+      });
     return {
       status: db === "ok" ? "ok" : "degraded",
       env: ctx.config.AE_ENV,
       db,
+      // "ephemeral" means a container-local database: data is lost on restart.
+      storage: ctx.config.AE_STORAGE_EPHEMERAL ? "ephemeral" : "durable",
       embeddingModel: ctx.embeddingModelVersionId ? "configured" : "lexical-only",
       time: new Date().toISOString(),
     };

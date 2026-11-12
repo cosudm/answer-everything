@@ -2,29 +2,58 @@
 
 One Worker (`answer-everything`) fronts two Containers on a single origin:
 
-| Path                           | Container      | Image                         | Runs                                                                                                               |
-| ------------------------------ | -------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `/v1/*`, `/health`, `/metrics` | `ApiContainer` | `infra/docker/api.Dockerfile` | migrations → registry seed → Fastify API with the embedded job runner and (outside prod) the labelled dev provider |
-| everything else                | `WebContainer` | `infra/docker/web.Dockerfile` | Next.js standalone, built with `NEXT_PUBLIC_API_URL=""` so the browser talks to the API on the same origin         |
+| Path               | Container      | Image                         | Runs                                                                                                                      |
+| ------------------ | -------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `/v1/*`, `/health` | `ApiContainer` | `infra/docker/api.Dockerfile` | migrations, registry seed, then the Fastify API with the embedded job runner and (outside prod) the labelled dev provider |
+| everything else    | `WebContainer` | `infra/docker/web.Dockerfile` | Next.js standalone, built so the browser calls the API on the same origin                                                 |
 
-The database is an external PostgreSQL with `vector` (Neon, Supabase, or any managed Postgres 16). Containers connect to it directly over TLS; Hyperdrive is not required.
+`/metrics` is not routed: it is unauthenticated operational data and this Worker is the public edge.
 
-## Deploy with Workers Builds (no local tooling needed)
+## Deploy with Workers Builds
 
-1. Push this repository to GitHub.
-2. Cloudflare dashboard → **Workers & Pages** → **Create** → **Import a repository** → pick the repo.
-3. Build settings: **Root directory** `apps/cloudflare`, **Build command** empty, **Deploy command** `npx wrangler deploy`. Production branch `main`.
-4. Before (or right after) the first build, add runtime secrets under the Worker's **Settings → Variables and Secrets** (type _Secret_):
-   - `DATABASE_URL` — the admin connection string of your Postgres (include `?sslmode=require`)
-   - `AE_DB_APP_PASSWORD`, `AE_DB_IDENTITY_PASSWORD` — any two long random strings; the migration runner creates the roles with them
-   - `AE_SESSION_SECRET` — 32+ random characters
-   - optional: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `PERPLEXITY_API_KEY`, `PRIVATE_INFERENCE_BASE_URL`, `PRIVATE_INFERENCE_API_KEY`
-5. Push (or retry the build). The first deploy takes several minutes while images build and provision. Open `https://answer-everything.<your-subdomain>.workers.dev`.
+1. Cloudflare dashboard, **Workers & Pages**, **Create**, **Import a repository**, pick this repository.
+2. Build settings: **Root directory** `apps/cloudflare`, **Build command** empty, **Deploy command** `npx wrangler deploy`, production branch `main`. Preview builds off.
+3. Deploy. The first build takes several minutes: it builds both images and provisions the containers.
+4. Open `https://answer-everything.<your-subdomain>.workers.dev`.
 
-Non-secret settings live in `wrangler.jsonc` → `vars`. `AE_ENV` is `uat` here on purpose: the labelled local stub stays available until real provider keys exist. For production set `AE_ENV=prod`, `AE_EMBEDDED_DEV_PROVIDER=false`, `AE_DEFAULT_ALLOW_EXPERIMENTAL=false` and point `AE_EMBEDDING_MODEL` at a real embedding model.
+No secrets are needed for that first deploy. Every push to `main` redeploys.
 
-## Notes
+## Storage: demo first, durable when you are ready
 
-- Containers sleep after 30 minutes idle; the first request afterwards waits for a cold start (migrations run on every start and are no-ops when already applied).
-- The API container is pinned to one instance (`getContainer(env.API, "primary")`) so the in-process job runner is the only worker. Scale out later by moving the runner to its own container.
-- Secrets are forwarded from Worker bindings to the container at start; they are never in this repository or in the image.
+**Demo storage (default).** With no `DATABASE_URL`, the API container starts its own PostgreSQL with pgvector. It is real PostgreSQL with the real schema and row-level security, but it lives inside the container: accounts, conversations and knowledge are erased whenever the container restarts, which happens after about 30 minutes without requests, on every deploy, and whenever a secret changes. The interface says so on the sign-in pages and in the navigation, and `/health` reports `"storage": "ephemeral"`. It is refused when `AE_ENV=prod`.
+
+**Durable storage.** Create a PostgreSQL 16 database that offers the `vector`, `pgcrypto` and `pg_trgm` extensions, for example on Neon or Supabase. The connecting role must be able to create roles, including one with `BYPASSRLS`; CI exercises this path against stock PostgreSQL with pgvector, so watch the container log on the first start against a managed provider. Then, in the Worker's **Settings, Variables and Secrets**, add one value of type **Secret**:
+
+| Secret         | Value                                                                |
+| -------------- | -------------------------------------------------------------------- |
+| `DATABASE_URL` | the connection string of that database, ending in `?sslmode=require` |
+
+That is enough outside production. The session secret and the two database role passwords are derived from `DATABASE_URL` (HMAC-SHA256, one per purpose), so they are stable across restarts and never stored anywhere. Saving the secret starts a fresh API container against the new database within a request or two; nothing needs redeploying.
+
+Use type **Secret**, not **Text**: a deploy replaces plain-text variables with the ones in `wrangler.jsonc` and keeps secrets.
+
+## Real models
+
+Until a provider key exists, answers come from the labelled local stub. Add any of these as secrets and the registry marks the matching models as configured:
+
+`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `PERPLEXITY_API_KEY`, `PRIVATE_INFERENCE_BASE_URL`, `PRIVATE_INFERENCE_API_KEY`
+
+On demo storage, adding a key restarts the API container and therefore clears the demo data.
+
+## Going to production on Cloudflare
+
+Set these in `wrangler.jsonc` under `vars`: `AE_ENV=prod`, `AE_EMBEDDED_DEV_PROVIDER=false`, `AE_EMBEDDED_DATABASE=false`, `AE_DEFAULT_ALLOW_EXPERIMENTAL=false`, and point `AE_EMBEDDING_MODEL` at a real embedding model. In prod nothing is derived: `DATABASE_URL`, `AE_SESSION_SECRET`, `AE_DB_APP_PASSWORD` and `AE_DB_IDENTITY_PASSWORD` must all be set as secrets, and the Worker answers `503 NOT_CONFIGURED` naming whichever is missing.
+
+## How it behaves
+
+- **Cold starts.** Containers sleep after 30 minutes idle. The next visitor sees a short "starting" page that reloads itself, and the first API call waits while migrations and the registry seed run. Opening any page starts waking the API in the background.
+- **Configuration changes.** The API container instance is named after a hash of its environment, so a changed secret gets a new instance instead of one still running with the old values. The previous instance sleeps on its own.
+- **One API instance.** The in-process job runner is the only worker. To scale out, move the runner to its own container (`infra/docker/worker.Dockerfile`).
+- **Client addresses.** The Worker passes Cloudflare's `CF-Connecting-IP` to the API as `X-Forwarded-For`, overwriting anything the visitor sent, so rate limits and audit records see the real address.
+- **Logs.** Worker and container logs are in the dashboard under the Worker's **Observability** tab.
+
+## Files
+
+- `wrangler.jsonc`: containers, bindings and non-secret variables
+- `src/index.ts`: routing, container start, the "starting" page
+- `src/config.ts`: variables and secrets to container environment (unit tested in `src/config.test.ts`)

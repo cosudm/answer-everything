@@ -30,6 +30,15 @@ const Env = z.object({
     .string()
     .optional()
     .transform((v) => v === "true"),
+  /**
+   * Set by the container entrypoint when it started a container-local
+   * PostgreSQL. Everything stored is lost when the container stops, and the
+   * API says so on /health so the interface can label it.
+   */
+  AE_STORAGE_EPHEMERAL: z
+    .string()
+    .optional()
+    .transform((v) => v === "true"),
   LOG_LEVEL: z.string().default("info"),
 });
 
@@ -48,6 +57,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       throw new Error("AE_DEFAULT_ALLOW_EXPERIMENTAL must be false in prod");
     if (cfg.AE_SESSION_SECRET.includes("change-me"))
       throw new Error("AE_SESSION_SECRET is a placeholder");
+    if (cfg.AE_STORAGE_EPHEMERAL)
+      throw new Error("Ephemeral storage (the embedded database) is not allowed in prod");
   }
   return { ...cfg, isProd: cfg.AE_ENV === "prod" };
 }

@@ -16,6 +16,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { useRequireSession } from "@/lib/session";
+import { DemoStorageNotice } from "./demo-storage";
 import { Button, cx, Spinner } from "./ui";
 
 const NAV = [
@@ -94,6 +95,7 @@ export function AppShell({
         })}
       </ul>
       <div className="mt-auto space-y-1 px-1">
+        <DemoStorageNotice compact />
         <WorkspaceSwitcher />
         <Link
           href="/settings"

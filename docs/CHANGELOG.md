@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.1 · 2026-11-11 · Hosted on Cloudflare
+
+Added
+
+- `apps/cloudflare`: one Worker fronting the API and web containers on a single origin, deployed by Workers Builds.
+- Demo storage: the API image can carry PostgreSQL (`RUNTIME_BASE=pgvector/pgvector:pg16`) and start a container-local database when none is configured. Labelled in the interface and on `/health`; refused in prod.
+- One-secret durable setup on Cloudflare: outside prod the session secret and role passwords are derived from `DATABASE_URL`.
+- `infra/docker/smoke.sh` and a CI job that builds, runs and smoke-tests every image.
+- Single-container switches: `AE_EMBEDDED_WORKER`, `AE_EMBEDDED_DEV_PROVIDER`, `AE_EMBEDDED_DATABASE`.
+
+Fixed
+
+- API and worker images did not build (build script and base TypeScript config missing from the context) and would not have resolved their dependencies at runtime (pnpm layout flattened).
+- `/health` no longer echoes database error text; it reports `unreachable` and logs the cause.
+- Re-running the registry seed inserted a second copy of every model without a version label, because the unique constraint treated NULL versions as distinct. Migration 0009 retires any copies and makes the identity unique; the container entrypoint seeds on every start, so this had to hold.
+
+Changed
+
+- Publishing images to GHCR from CI is opt-in (`PUBLISH_IMAGES=true`).
+- The API image's entrypoint runs migrations and the registry seed before serving.
+
 ## 0.1.0 · 2026-11-08 · First vertical slice
 
 Added

@@ -1,8 +1,8 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   // One Worker fronts the whole application on a single origin:
-  //   /v1/*, /health, /metrics  -> API container (Fastify + embedded job runner)
-  //   everything else           -> web container (Next.js standalone)
+  //   /v1/*, /health   -> API container (Fastify + embedded job runner)
+  //   everything else  -> web container (Next.js standalone)
   // Workers Builds deploys this on push to the production branch with
   // `npx wrangler deploy`, building both Dockerfiles from the repository root.
   "name": "answer-everything",
@@ -16,16 +16,22 @@
       "class_name": "ApiContainer",
       "image": "../../infra/docker/api.Dockerfile",
       "image_build_context": "../..",
+      // Adds PostgreSQL + pgvector to the image so the API can run on demo
+      // storage until DATABASE_URL is set (see README.md in this folder).
+      "image_vars": { "RUNTIME_BASE": "pgvector/pgvector:pg16" },
       "instance_type": "basic",
-      "max_instances": 2,
+      // One instance serves traffic. The spare slots cover the overlap while a
+      // configuration change moves traffic to a freshly started instance.
+      "max_instances": 3,
+      "rollout_step_percentage": 100,
     },
     {
       "class_name": "WebContainer",
       "image": "../../infra/docker/web.Dockerfile",
       "image_build_context": "../..",
-      "image_vars": { "NEXT_PUBLIC_API_URL": "" },
       "instance_type": "basic",
       "max_instances": 2,
+      "rollout_step_percentage": 100,
     },
   ],
   "durable_objects": {
@@ -36,14 +42,16 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ApiContainer", "WebContainer"] }],
   // Non-secret runtime configuration passed into the API container.
-  // Secrets (DATABASE_URL, AE_DB_APP_PASSWORD, AE_DB_IDENTITY_PASSWORD,
-  // AE_SESSION_SECRET, provider keys) are set in the dashboard under
+  // Secrets (DATABASE_URL and provider keys) are set in the dashboard under
   // Settings -> Variables and Secrets and forwarded by src/index.ts.
   "vars": {
     "AE_ENV": "uat",
     "LOG_LEVEL": "info",
     "AE_EMBEDDED_WORKER": "true",
     "AE_EMBEDDED_DEV_PROVIDER": "true",
+    // Without DATABASE_URL the API container runs its own PostgreSQL. That data
+    // is erased whenever the container restarts; the interface says so.
+    "AE_EMBEDDED_DATABASE": "true",
     "AE_DEFAULT_ALLOW_EXPERIMENTAL": "true",
     "AE_EMBEDDING_MODEL": "local-dev/dev-embed-1536",
     "AE_DEFAULT_WORKSPACE_MONTHLY_BUDGET_USD": "25",

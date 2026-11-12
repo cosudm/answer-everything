@@ -16,3 +16,4 @@ coverage/
 /tmp/
 uploads/
 .wrangler/
+*.tsbuildinfo

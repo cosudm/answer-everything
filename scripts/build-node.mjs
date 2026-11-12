@@ -3,8 +3,13 @@
 // pino transports keep working.
 //
 //   node ../../scripts/build-node.mjs src/server.ts dist/server.js [more pairs...]
-import { build } from "esbuild";
+import { createRequire } from "node:module";
 import path from "node:path";
+
+// esbuild is a devDependency of the package being built, so resolve it from
+// the working directory. Image builds install only that package's dependency
+// closure (pnpm install --filter), which leaves the repository root without it.
+const { build } = createRequire(path.join(process.cwd(), "package.json"))("esbuild");
 
 const args = process.argv.slice(2);
 if (args.length < 2 || args.length % 2) {

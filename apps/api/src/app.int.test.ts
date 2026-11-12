@@ -16,7 +16,12 @@ describeDb("API vertical slice: authentication through a streaming answer", () =
   it("health reports the database and embedding model", async () => {
     const res = await h.app.inject({ method: "GET", url: "/health" });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ status: "ok", db: "ok", embeddingModel: "configured" });
+    expect(res.json()).toMatchObject({
+      status: "ok",
+      db: "ok",
+      storage: "durable",
+      embeddingModel: "configured",
+    });
   });
 
   it("rejects weak passwords and duplicate emails with specific codes", async () => {

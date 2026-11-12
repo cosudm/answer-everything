@@ -6,10 +6,10 @@ All workspace-scoped routes live under `/v1/workspaces/:workspaceId/...` so the 
 
 ## Health
 
-| Method | Path       | Notes                                 |
-| ------ | ---------- | ------------------------------------- |
-| GET    | `/health`  | `{ status, env, db, embeddingModel }` |
-| GET    | `/metrics` | Prometheus text format                |
+| Method | Path       | Notes                                                                                                                     |
+| ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/health`  | `{ status, env, db, storage, embeddingModel }`; `storage` is `ephemeral` when the container-local demo database is in use |
+| GET    | `/metrics` | Prometheus text format                                                                                                    |
 
 ## Auth
 

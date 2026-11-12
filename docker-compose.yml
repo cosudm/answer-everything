@@ -15,6 +15,8 @@ services:
       interval: 5s
       retries: 10
 
+  # One-off: roles, schema and registry seed before the API and worker start.
+  # (The API image's entrypoint runs the same two steps; here they gate the worker too.)
   migrate:
     build: { context: ., dockerfile: infra/docker/api.Dockerfile }
     command: ["sh", "-c", "node dist/migrate.js migrate && node dist/seed.js"]
@@ -52,6 +54,7 @@ services:
       DATABASE_APP_URL: postgres://ae_app:${AE_DB_APP_PASSWORD:-ae_app_dev_password}@postgres:5432/answer_everything
       DATABASE_IDENTITY_URL: postgres://ae_identity:${AE_DB_IDENTITY_PASSWORD:-ae_identity_dev_password}@postgres:5432/answer_everything
       DEV_PROVIDER_BASE_URL: http://dev-provider:4100/v1
+      AE_MODEL_SEED_PATH: /app/config/models.seed.json
       API_HOST: 0.0.0.0
     ports: ["4000:4000"]
 
@@ -64,7 +67,7 @@ services:
       DATABASE_IDENTITY_URL: postgres://ae_identity:${AE_DB_IDENTITY_PASSWORD:-ae_identity_dev_password}@postgres:5432/answer_everything
       DEV_PROVIDER_BASE_URL: http://dev-provider:4100/v1
     depends_on:
-      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   web:
     build:

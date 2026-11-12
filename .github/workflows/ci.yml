@@ -54,10 +54,118 @@ jobs:
       - run: pnpm --filter @ae/api build && pnpm --filter @ae/worker build
       - run: pnpm --filter @ae/web build
 
-  images:
-    name: Build container images
+  containers:
+    name: Build and smoke-test container images
     needs: verify
-    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: answer_everything_smoke
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throwaway values for a database that exists only for this job.
+      SMOKE_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/answer_everything_smoke
+      SMOKE_APP_PASSWORD: smoke_app_password_0123456789
+      SMOKE_IDENTITY_PASSWORD: smoke_identity_password_0123456789
+      SMOKE_SESSION_SECRET: smoke-session-secret-smoke-session-secret-0123456789
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API image (managed database)
+        run: docker build -f infra/docker/api.Dockerfile -t ae-api .
+      - name: Build API image (with the embedded demo database)
+        run: docker build -f infra/docker/api.Dockerfile --build-arg RUNTIME_BASE=pgvector/pgvector:pg16 -t ae-api-demo .
+      - name: Build worker image
+        run: docker build -f infra/docker/worker.Dockerfile -t ae-worker .
+      - name: Build web image
+        run: docker build -f infra/docker/web.Dockerfile -t ae-web .
+
+      # The configuration the Cloudflare deployment starts with: no database
+      # configured, so the container runs its own and reports it as ephemeral.
+      - name: Smoke test, demo storage
+        run: |
+          docker run -d --name api-demo -p 4000:4000 \
+            -e AE_ENV=uat -e AE_COOKIE_SECURE=true -e AE_DEFAULT_ALLOW_EXPERIMENTAL=true \
+            -e AE_EMBEDDED_DATABASE=true -e AE_EMBEDDED_WORKER=true -e AE_EMBEDDED_DEV_PROVIDER=true \
+            -e DEV_PROVIDER_BASE_URL=http://127.0.0.1:4100/v1 -e DEV_PROVIDER_PORT=4100 \
+            ae-api-demo
+          EXPECT_STORAGE=ephemeral infra/docker/smoke.sh http://127.0.0.1:4000
+      - name: Demo storage container log
+        if: always()
+        run: docker logs api-demo 2>&1 | tail -n 80 || true
+
+      # Same image once DATABASE_URL is set: the embedded database stays off.
+      - name: Smoke test, external database
+        run: |
+          docker rm -f api-demo
+          docker run -d --name api-external --network host \
+            -e AE_ENV=uat -e AE_COOKIE_SECURE=true -e AE_DEFAULT_ALLOW_EXPERIMENTAL=true \
+            -e AE_EMBEDDED_DATABASE=true -e AE_EMBEDDED_WORKER=true -e AE_EMBEDDED_DEV_PROVIDER=true \
+            -e DEV_PROVIDER_BASE_URL=http://127.0.0.1:4100/v1 -e DEV_PROVIDER_PORT=4100 \
+            -e DATABASE_URL="$SMOKE_DATABASE_URL" -e AE_DB_APP_PASSWORD="$SMOKE_APP_PASSWORD" \
+            -e AE_DB_IDENTITY_PASSWORD="$SMOKE_IDENTITY_PASSWORD" -e AE_SESSION_SECRET="$SMOKE_SESSION_SECRET" \
+            ae-api-demo
+          EXPECT_STORAGE=durable infra/docker/smoke.sh http://127.0.0.1:4000
+      - name: External database container log
+        if: always()
+        run: docker logs api-external 2>&1 | tail -n 80 || true
+
+      # The lean image must refuse to invent a database it does not contain.
+      - name: Lean API image runs against the database and refuses demo storage
+        run: |
+          docker rm -f api-external
+          docker run -d --name api-lean --network host \
+            -e AE_ENV=uat -e AE_COOKIE_SECURE=true -e AE_DEFAULT_ALLOW_EXPERIMENTAL=true \
+            -e AE_EMBEDDED_WORKER=true -e AE_EMBEDDED_DEV_PROVIDER=true \
+            -e DEV_PROVIDER_BASE_URL=http://127.0.0.1:4100/v1 -e DEV_PROVIDER_PORT=4100 \
+            -e DATABASE_URL="$SMOKE_DATABASE_URL" -e AE_DB_APP_PASSWORD="$SMOKE_APP_PASSWORD" \
+            -e AE_DB_IDENTITY_PASSWORD="$SMOKE_IDENTITY_PASSWORD" -e AE_SESSION_SECRET="$SMOKE_SESSION_SECRET" \
+            ae-api
+          EXPECT_STORAGE=durable infra/docker/smoke.sh http://127.0.0.1:4000
+          docker rm -f api-lean
+          if docker run --rm -e AE_ENV=uat -e AE_EMBEDDED_DATABASE=true ae-api; then
+            echo "the lean image started without a database" >&2
+            exit 1
+          fi
+
+      - name: Worker image starts against the database
+        run: |
+          docker run -d --name worker --network host \
+            -e AE_ENV=uat -e DATABASE_URL="$SMOKE_DATABASE_URL" -e AE_DB_APP_PASSWORD="$SMOKE_APP_PASSWORD" \
+            -e AE_DB_IDENTITY_PASSWORD="$SMOKE_IDENTITY_PASSWORD" \
+            -e DEV_PROVIDER_BASE_URL=http://127.0.0.1:4100/v1 \
+            ae-worker
+          sleep 8
+          docker logs worker 2>&1 | tail -n 20
+          test "$(docker inspect -f '{{.State.Running}}' worker)" = "true"
+
+      - name: Web image serves the sign-in page
+        run: |
+          docker run -d --name web -p 3000:3000 ae-web
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/login -o login.html; then break; fi
+            sleep 1
+          done
+          grep -q "Sign in" login.html
+
+  # Publishing is opt-in: set the repository variable PUBLISH_IMAGES=true to
+  # push :dev images to GHCR on every push to main (see docs/DEPLOYMENT.md).
+  publish:
+    name: Publish container images
+    needs: containers
+    if: github.event_name == 'push' && vars.PUBLISH_IMAGES == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read

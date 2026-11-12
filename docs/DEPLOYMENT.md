@@ -15,7 +15,7 @@ Three environments, one Terraform module, one set of container images promoted b
 
 ## Images
 
-`infra/docker/{api,worker,web}.Dockerfile`, built from the repo root. The API image carries `dist/server.js`, `dist/migrate.js`, `dist/seed.js`, the SQL migrations and `config/models.seed.json`. CI builds and pushes `ghcr.io/<org>/answer-everything-{api,worker,web}:dev` on every push to `main`.
+`infra/docker/{api,worker,web}.Dockerfile`, built from the repo root. The API image carries `dist/server.js`, `dist/migrate.js`, `dist/seed.js`, the SQL migrations and `config/models.seed.json`; its entrypoint applies migrations and seeds the registry before serving, and any arguments replace that (`docker run ae-api node dist/migrate.js status`). CI builds and smoke-tests the images on every push and pull request, and pushes `ghcr.io/<org>/answer-everything-{api,worker,web}:dev` from `main` when the repository variable `PUBLISH_IMAGES` is `true`.
 
 ## First deploy of an environment
 
@@ -54,4 +54,8 @@ Container Apps revisions: re-point traffic to the previous revision. Database mi
 
 ## Cloudflare (Workers + Containers)
 
-An alternative to the Azure stack for a quick hosted environment: one Worker fronting the API and web containers on a single origin, built and deployed by Workers Builds from the GitHub repository, with an external PostgreSQL (pgvector) such as Neon. See `apps/cloudflare/README.md` for the exact dashboard steps and the secrets to set. ADR-0013 records the decision.
+The fast path to a hosted environment: one Worker fronting the API and web containers on a single origin, built and deployed by Workers Builds on every push to `main`. It needs no secrets to come up: without `DATABASE_URL` the API container runs on labelled demo storage (a container-local PostgreSQL that is erased on restart). Setting the single secret `DATABASE_URL` switches it to a durable database. See `apps/cloudflare/README.md` for the dashboard steps and ADR-0013 for the decisions.
+
+## Container images in CI
+
+The `containers` job builds the API (both runtime bases), worker and web images, runs them, and drives the API through `infra/docker/smoke.sh`: sign-up, a note through the job runner, and a streamed answer that cites it, once on demo storage and once against a PostgreSQL service. Publishing `:dev` images to GHCR is opt-in: set the repository variable `PUBLISH_IMAGES=true`.

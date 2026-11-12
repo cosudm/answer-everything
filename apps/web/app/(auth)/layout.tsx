@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DemoStorageNotice } from "@/components/demo-storage";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -11,6 +12,9 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       </div>
       <div className="w-full max-w-[400px] rounded-[var(--radius-lg)] border border-line bg-surface p-7 shadow-[var(--shadow-soft)]">
         {children}
+      </div>
+      <div className="mt-4 w-full max-w-[400px] empty:hidden">
+        <DemoStorageNotice />
       </div>
       <p className="mt-6 max-w-[400px] text-center text-[13px] leading-5 text-ink-3">
         Ask anything. Get the strongest available answer, and see what supports it.
